@@ -899,7 +899,6 @@ static void app_init(void)
     global = bank.global;
     preset_select(bank.current);
     macro_init();
-    lcd_fill(0, 0, 240, 240, C_BLACK);
 }
 
 static void app_frame(const fw_input_t *in)

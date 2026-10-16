@@ -49,7 +49,7 @@ web/                 the web installer and its site builder
 An app is a folder `firmware/apps/NAME/` with an `app.c` (it may `#include` its own `.c` files) and three functions:
 
 ```c
-static void app_init(void);                           // once, before the audio starts
+static void app_init(void);                           // once, before the audio starts; the splash is up: do not draw
 static void app_frame(const fw_input_t *in);          // main loop, ~66 Hz
 static void app_audio(int32_t *lr, uint32_t frames);  // INTERRUPT: frames = 256, LRLR…, ±32767
 ```

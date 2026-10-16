@@ -185,7 +185,6 @@ static void draw_scope(void)
 
 static void app_init(void)
 {
-    lcd_fill(0, 0, 240, 240, C_BLACK);
 }
 
 static void app_frame(const fw_input_t *in)

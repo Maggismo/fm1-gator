@@ -30,4 +30,5 @@ dspaudio/orbit (GPL-3.0-only). The DSP is Plaits (MIT, `third_party/eurorack`). 
   `pages.yml`. Release notes in `docs/releases/X.Y.md`. Licences: `LICENSE`, `LICENSING.md`, `LICENSES/` travel
   with every package (release and site).
 - New files carry `SPDX-License-Identifier: GPL-3.0-only`; keep the existing copyright headers of platform files.
+- The splash stays `FW_SPLASH_MS` (main.c) from drawing it; `app_init` runs meanwhile and must not draw.
 - Never claim hardware testing that did not happen.
