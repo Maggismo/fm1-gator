@@ -1,0 +1,290 @@
+# every model: select with HOME + key, play C4, measure
+btn HOME down
+key 0 down
+frames 1
+key 0 up
+btn HOME up
+frames 2
+echo model 0
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 1 down
+frames 1
+key 1 up
+btn HOME up
+frames 2
+echo model 1
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 2 down
+frames 1
+key 2 up
+btn HOME up
+frames 2
+echo model 2
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 3 down
+frames 1
+key 3 up
+btn HOME up
+frames 2
+echo model 3
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 4 down
+frames 1
+key 4 up
+btn HOME up
+frames 2
+echo model 4
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 5 down
+frames 1
+key 5 up
+btn HOME up
+frames 2
+echo model 5
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 6 down
+frames 1
+key 6 up
+btn HOME up
+frames 2
+echo model 6
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 7 down
+frames 1
+key 7 up
+btn HOME up
+frames 2
+echo model 7
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 8 down
+frames 1
+key 8 up
+btn HOME up
+frames 2
+echo model 8
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 9 down
+frames 1
+key 9 up
+btn HOME up
+frames 2
+echo model 9
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 10 down
+frames 1
+key 10 up
+btn HOME up
+frames 2
+echo model 10
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 11 down
+frames 1
+key 11 up
+btn HOME up
+frames 2
+echo model 11
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 12 down
+frames 1
+key 12 up
+btn HOME up
+frames 2
+echo model 12
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 13 down
+frames 1
+key 13 up
+btn HOME up
+frames 2
+echo model 13
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 14 down
+frames 1
+key 14 up
+btn HOME up
+frames 2
+echo model 14
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 15 down
+frames 1
+key 15 up
+btn HOME up
+frames 2
+echo model 15
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 16 down
+frames 1
+key 16 up
+btn HOME up
+frames 2
+echo model 16
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 17 down
+frames 1
+key 17 up
+btn HOME up
+frames 2
+echo model 17
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 18 down
+frames 1
+key 18 up
+btn HOME up
+frames 2
+echo model 18
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 19 down
+frames 1
+key 19 up
+btn HOME up
+frames 2
+echo model 19
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 20 down
+frames 1
+key 20 up
+btn HOME up
+frames 2
+echo model 20
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 21 down
+frames 1
+key 21 up
+btn HOME up
+frames 2
+echo model 21
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 22 down
+frames 1
+key 22 up
+btn HOME up
+frames 2
+echo model 22
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+btn HOME down
+key 23 down
+frames 1
+key 23 up
+btn HOME up
+frames 2
+echo model 23
+key 7 down
+frames 20
+bench 500
+key 7 up
+frames 20
+wav build/host/out/models.wav

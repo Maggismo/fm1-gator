@@ -1,0 +1,59 @@
+# every page, with a held note in DRONE mode
+knob PRESET 5
+frames 20
+btn PLAY down
+frames 1
+btn PLAY up
+key 12 down
+frames 40
+screen build/host/out/page_main.ppm
+btn SCL down
+frames 1
+btn SCL up
+knob K2 6
+frames 20
+screen build/host/out/page_attn.ppm
+btn FX down
+frames 1
+btn FX up
+frames 20
+screen build/host/out/page_lpg.ppm
+btn ENV down
+frames 1
+btn ENV up
+frames 20
+screen build/host/out/page_env.ppm
+btn LFO down
+frames 1
+btn LFO up
+frames 20
+screen build/host/out/page_lfo.ppm
+btn EDIT down
+frames 1
+btn EDIT up
+knob SELECT 2
+frames 2
+knob K1 3
+frames 2
+knob K2 2
+frames 2
+knob K3 6
+frames 40
+screen build/host/out/page_matrix.ppm
+btn GLO down
+frames 1
+btn GLO up
+frames 20
+screen build/host/out/page_global.ppm
+btn SAVE down
+frames 1
+btn SAVE up
+frames 20
+screen build/host/out/page_save.ppm
+btn HOME down
+frames 30
+screen build/host/out/page_home_held.ppm
+leds
+btn HOME up
+frames 30
+screen build/host/out/page_main2.ppm

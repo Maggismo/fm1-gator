@@ -1,0 +1,2 @@
+third_party/eurorack/plaits
+third_party/eurorack/stmlib
