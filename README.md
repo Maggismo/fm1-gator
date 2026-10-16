@@ -90,8 +90,20 @@ GATOR is made by [npi3pak](https://github.com/npi3pak). It stands on the work of
 
 ## License
 
-GATOR is free software under the [GNU General Public License v3.0 only](LICENSE). Bundled parts keep their own
-licences; [LICENSING.md](LICENSING.md) lists them, and their texts are in [LICENSES/](LICENSES/).
+GATOR is free software under the [GNU General Public License v3.0 only](LICENSE), provided without any warranty.
+The parts it is built from keep their licences and copyright notices:
+
+| Part | Author | Licence | Text |
+|---|---|---|---|
+| GATOR (the app, web installer, release tooling, logo) | npi3pak | GPL-3.0-only | [LICENSE](LICENSE) |
+| Felucca platform: HAL, update loader, USB-MIDI, OTA, storage, tools (through ORBIT and SLOOP, modified) | Leo Kuroshita, Hügelton Instruments | GPL-3.0-only | [LICENSE](LICENSE) |
+| Web install protocol `fm1ota.js`, `fm1pkg.js` (from SLOOP 2.7, unchanged) | Leo Kuroshita, Hügelton Instruments; isod89 | GPL-3.0-only | [LICENSE](LICENSE) |
+| Plaits and stmlib DSP (`third_party/eurorack`, changes in `PATCHES.md`) | Emilie Gillet | MIT | [LICENSES/MIT-Plaits-stmlib.txt](LICENSES/MIT-Plaits-stmlib.txt) |
+| Terminus font (rasterised into the firmware) | Dimitar Toshkov Zhekov | SIL OFL 1.1 | [LICENSES/OFL-Terminus.txt](LICENSES/OFL-Terminus.txt) |
+| Three AC79 SDK files in every package (`tools/sdk`, unmodified) | JieLi Technology | Apache-2.0 | [LICENSES/Apache-2.0-JieLi-SDK.txt](LICENSES/Apache-2.0-JieLi-SDK.txt) |
+
+Every release and the web installer carry these licence texts next to the packages, and each release's complete
+source is its tag in this repository. [LICENSING.md](LICENSING.md) has the details.
 
 "M-VAVE" and "FM-1" are trademarks of their respective owners. GATOR is not affiliated with, endorsed by or
 supported by them.

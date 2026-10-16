@@ -199,7 +199,10 @@ const loadManifest = async () => {
         const r = await fetch("firmware/manifest.json", { cache: "no-cache" });
         if (!r.ok)
             throw new Error(`manifest.json: HTTP ${r.status}`);
-        state.manifest = (await r.json()).packages;
+        const manifest = await r.json();
+        state.manifest = manifest.packages;
+        if (manifest.source)
+            $("source").href = manifest.source;
         $("pkgs").replaceChildren(...state.manifest.map((p, i) => pkgCard(p, i === 0)));
         return true;
     } catch (e) {

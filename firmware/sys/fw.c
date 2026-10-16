@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
+ * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
+ * Modified for GATOR by npi3pak, 2026, from ORBIT 0.6.0 (dspaudio/orbit) */
 #include <stdint.h>
 #include "fm1_time.h"
 #include "fm1_sys.h"

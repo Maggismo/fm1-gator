@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
+# Modified for GATOR by npi3pak, 2026, from ORBIT 0.6.0 (dspaudio/orbit)
 """Build an FM-1 update package (.fwsc) from the Felucca app and update loader.
 
   flash.bin  head [0, 0x4000): flash header (JieLi SDK default values), JLFS

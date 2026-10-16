@@ -61,6 +61,8 @@
     p:last-child { margin-bottom: 0; }
     .dim { color: var(--dim); font-size: 13px; }
     a { color: var(--accent); }
+    ul.lic { margin: 0 0 10px; padding-left: 20px; }
+    ul.lic li { margin: 4px 0; }
     footer { margin-top: 32px; color: var(--dim); font-size: 12px; text-align: center; }
 </style>
 </head>
@@ -132,6 +134,24 @@
         <div class="row">
             <button class="go alt" id="stockgo" type="button" disabled>Write the official V15</button>
         </div>
+    </section>
+
+    <h2>Licences</h2>
+    <section>
+        <p>GATOR is free software under the GNU General Public License v3.0 only, provided without any warranty.
+            <a id="source" href="https://github.com/npi3pak/fm1-gator" target="_blank" rel="noopener">Complete source code of this version</a>.</p>
+        <ul class="lic">
+            <li>GATOR, and the Felucca platform it is built on (Leo Kuroshita, Hügelton Instruments; through ORBIT
+                and SLOOP): GPL-3.0-only, <a href="firmware/LICENSE">licence text</a></li>
+            <li>Plaits and stmlib, the synthesis DSP by Emilie Gillet: MIT,
+                <a href="firmware/LICENSES/MIT-Plaits-stmlib.txt">licence text</a></li>
+            <li>Terminus font by Dimitar Toshkov Zhekov: SIL Open Font License 1.1,
+                <a href="firmware/LICENSES/OFL-Terminus.txt">licence text</a></li>
+            <li>Three JieLi AC79 SDK files in every package (JieLi Technology, unmodified): Apache-2.0,
+                <a href="firmware/LICENSES/Apache-2.0-JieLi-SDK.txt">licence text</a></li>
+        </ul>
+        <p class="dim">Details: <a href="firmware/LICENSING.md">LICENSING.md</a> ·
+            checksums: <a href="firmware/SHA256SUMS">SHA256SUMS</a></p>
     </section>
 
     <footer>

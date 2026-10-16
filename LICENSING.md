@@ -14,6 +14,15 @@ must also give your recipients its complete corresponding source under the same 
 
 GATOR is provided without any warranty (GPL-3.0 sections 15 and 16). Installing it is at your own risk.
 
+**Source code.** The complete corresponding source of every released package is the tag `vX.Y` of
+<https://github.com/npi3pak/fm1-gator> (GitHub attaches its archives to the release); the web installer links the
+source of the version it installs. `BUILDING.md` describes how to build it.
+
+**Modified files.** The platform files taken from ORBIT 0.6.0 (dspaudio/orbit) and changed for GATOR keep their
+copyright line and carry a second one, "Modified for GATOR by npi3pak, 2026, from ORBIT 0.6.0". Files without that
+line are unchanged from ORBIT (the HAL and the update loader's code, whose binary is byte-identical to ORBIT's),
+or, with only an npi3pak line, new in GATOR.
+
 ## What is GPL-3.0-only
 
 Every file in this tree that carries an `SPDX-License-Identifier: GPL-3.0-only` header, and GATOR's assets:

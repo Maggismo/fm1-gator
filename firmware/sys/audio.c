@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
+ * Modified for GATOR by npi3pak, 2026, from ORBIT 0.6.0 (dspaudio/orbit) */
 #define FW_HALF_WORDS (FW_BLOCK * 2u)
 #define FW_OUT_SHIFT 7
 

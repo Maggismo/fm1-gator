@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
+# Modified for GATOR by npi3pak, 2026, from ORBIT 0.6.0 (dspaudio/orbit)
 """Build the FM-1 firmware: the app, the update loader and an installable .fwsc package.
 
   tools/build.py [--release X.Y[-suffix]] [--name NAME]

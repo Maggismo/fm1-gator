@@ -25,6 +25,7 @@ SRC = HERE.parent
 sys.path.insert(0, str(SRC / "tools"))
 import fm1_install  # noqa: E402
 
+REPO = "https://github.com/npi3pak/fm1-gator"
 PAGE = ["index.html", "installer.js", "fm1ota.js", "fm1pkg.js", "logo.jpg"]
 LOADER_MARK = b"FELUCCA-LOADER-1"
 PACKAGES = [
@@ -79,7 +80,9 @@ def main():
     listed = [describe(m, f, (folder / f).read_bytes(), version) for m, f in present]
     for p in listed:
         shutil.copy(folder / p["file"], fw / p["file"])
-    (fw / "manifest.json").write_text(json.dumps({"packages": listed}, indent=1) + "\n", encoding="utf-8")
+    source = f"{REPO}/tree/v{version}" if a.release else REPO
+    (fw / "manifest.json").write_text(json.dumps({"source": source, "packages": listed}, indent=1) + "\n",
+                                      encoding="utf-8")
     (fw / "SHA256SUMS").write_text("".join(f"{p['sha256']}  {p['file']}\n" for p in listed))
     shutil.copy(SRC / "LICENSE", fw / "LICENSE")
     shutil.copy(SRC / "LICENSING.md", fw / "LICENSING.md")
