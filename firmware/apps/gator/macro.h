@@ -22,6 +22,8 @@ enum {
     DST_COUNT
 };
 
+enum { MODE_TRIG, MODE_DRONE, MODE_GATE, MODES };
+
 enum { LFO_SINE, LFO_TRI, LFO_SAW, LFO_SQUARE, LFO_SH, LFO_SMOOTH, LFO_SHAPES };
 
 typedef struct {
@@ -38,7 +40,7 @@ typedef struct {
     int16_t lfo_rate[MACRO_LFOS], lfo_shape[MACRO_LFOS], lfo_sync[MACRO_LFOS];
     int16_t env_a, env_d, env_s, env_r;
     int16_t blend, spread;
-    int16_t drone;
+    int16_t mode;
     int16_t glide;
     int16_t reserved[4];
     macro_route_t route[MACRO_ROUTES];

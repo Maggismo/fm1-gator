@@ -27,7 +27,7 @@ project, not affiliated with or endorsed by Mutable Instruments.
 - a low-pass gate with DECAY and COLOUR, OUT / AUX mix and stereo spread
 - an ADSR envelope (1 ms … 10 s), two LFOs with six shapes, an 8-slot modulation matrix
   (LFO, envelope, velocity, note, mod wheel, aftertouch, random, gate)
-- TRIG (plucked, as with a cable in the module's TRIG jack) and DRONE modes, HOLD, glide, legato
+- GATE (the note sounds while held), TRIG (plucked, as the module) and DRONE play modes, HOLD, glide, legato
 - 16 presets in flash, USB-MIDI and TRS MIDI in
 - 44.1 kHz and 48 kHz builds
 

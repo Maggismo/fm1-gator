@@ -61,6 +61,9 @@ static const char *const NOTE_NAME[12] = {"C", "C#", "D", "D#", "E", "F", "F#", 
 static const char *const BANK_LETTER[3] = {"A", "B", "C"};
 static const uint16_t KNOB_COLOR[4] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 255, 255), RGB(255, 98, 26)};
 static const uint16_t BANK_COLOR[3] = {RGB(255, 170, 30), RGB(60, 210, 90), RGB(240, 60, 60)};
+static const char *const MODE_NAME[MODES] = {"TRIG", "DRONE", "GATE"};
+static const uint16_t MODE_COLOR[MODES] = {C_HI, RGB(255, 170, 30), RGB(60, 210, 90)};
+static const int16_t MODE_NEXT[MODES] = {MODE_GATE, MODE_TRIG, MODE_DRONE};
 
 static macro_patch_t patch;
 static macro_global_t global;
@@ -137,6 +140,7 @@ static void patch_init(macro_patch_t *p, int32_t engine)
 {
     memset(p, 0, sizeof *p);
     p->engine = (int16_t)engine;
+    p->mode = MODE_GATE;
     p->harmonics = 500;
     p->timbre = 500;
     p->morph = 500;
@@ -196,7 +200,10 @@ static void factory_bank(void)
     bank.preset[8].spread = 60;
     route_set(&bank.preset[9], 0, SRC_LFO1, DST_TIMBRE, 30);
     route_set(&bank.preset[9], 1, SRC_LFO2, DST_MORPH, 30);
-    bank.preset[9].drone = 1;
+    bank.preset[9].mode = MODE_DRONE;
+    bank.preset[2].mode = MODE_TRIG;
+    for (i = 11; i < PRESETS; i++)
+        bank.preset[i].mode = MODE_TRIG;
     bank.preset[13].transpose = -12;
 }
 
@@ -226,7 +233,7 @@ static void patch_sanitize(macro_patch_t *p)
     clamp16(&p->env_r, 0, 1000);
     clamp16(&p->blend, 0, 100);
     clamp16(&p->spread, 0, 100);
-    clamp16(&p->drone, 0, 1);
+    clamp16(&p->mode, 0, MODES - 1);
     clamp16(&p->glide, 0, 1000);
     for (i = 0; i < MACRO_ROUTES; i++) {
         p->route[i].src = (int8_t)clampi(p->route[i].src, 0, SRC_COUNT - 1);
@@ -532,7 +539,7 @@ static void draw_status(void)
         cv_blit(0, 222);
         return;
     }
-    cv_text(8, 2, &FONT_S, patch.drone ? "DRONE" : "TRIG", patch.drone ? BANK_COLOR[0] : C_HI);
+    cv_text(8, 2, &FONT_S, MODE_NAME[patch.mode], MODE_COLOR[patch.mode]);
     cv_text(60, 2, &FONT_S, hold ? "HOLD" : "", BANK_COLOR[2]);
     str_cpy(b, "P", sizeof b);
     fmt_int(n, bank.current + 1);
@@ -728,7 +735,7 @@ static void handle_buttons(const fw_input_t *in)
         set_page(PAGE_SAVE);
     }
     if (in->pressed & FW_BIT(FW_BTN_PLAY)) {
-        patch.drone = (int16_t)!patch.drone;
+        patch.mode = MODE_NEXT[patch.mode];
         dirty |= FW_BIT(D_STATUS);
     }
     if (in->pressed & FW_BIT(FW_BTN_REC)) {
@@ -884,7 +891,7 @@ static void update_leds(const fw_input_t *in)
     uint32_t i;
     for (i = 0; i < PAGES; i++)
         fw_led_button(PAGE_LED[i], i == page);
-    fw_led_button(FW_BTN_PLAY, patch.drone);
+    fw_led_button(FW_BTN_PLAY, patch.mode != MODE_TRIG);
     fw_led_button(FW_BTN_REC, hold);
     if (in->held & FW_BIT(FW_BTN_HOME)) {
         fw_leds_keys(FW_BIT(patch.engine));

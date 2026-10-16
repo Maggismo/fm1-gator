@@ -11,7 +11,7 @@ FM-1's encoders. Not affiliated with or endorsed by Mutable Instruments.
 - [Install](#install)
 - [How the module maps to the FM-1](#how-the-module-maps-to-the-fm-1)
 - [Buttons](#buttons)
-- [TRIG and DRONE](#trig-and-drone)
+- [GATE, TRIG and DRONE](#gate-trig-and-drone)
 - [Pages](#pages)
 - [Models](#models)
 - [MIDI](#midi)
@@ -79,7 +79,7 @@ firmware (the web installer's "Back to the official firmware") at any time.
 | **EDIT** | modulation matrix |
 | **GLO** | global settings |
 | **SAVE** | the save page; press again to write the preset |
-| **PLAY** | toggle TRIG / DRONE (LED on in DRONE) |
+| **PLAY** | switch the play mode: TRIG → GATE → DRONE (LED on in GATE and DRONE) |
 | **REC** | HOLD: notes keep sounding after release (LED on); switching it off releases all notes |
 | **OCT− / OCT+** | keyboard octave −3…+3 |
 | encoder **PRESET** | step through presets 1–16 on any page but SAVE (they load at once) |
@@ -88,21 +88,24 @@ firmware (the web installer's "Back to the official firmware") at any time.
 System combinations: **OCT− + OCT+ for 5 seconds** enters UBOOT (JieLi's ROM loader); **OCT− held at power-on**
 opens USB RESCUE for reinstalling.
 
-## TRIG and DRONE
+## GATE, TRIG and DRONE
 
-These are the two states of the module's TRIG jack.
+PLAY switches between three play modes; the mode is saved with the preset and shown at the left of the status line.
 
-- **TRIG** (the default, "a cable in TRIG"). A key press is a trigger: the internal LPG is pinged and the sound decays
-  at the **DECAY** rate (FX) even while the key is held. That is how the module works: a percussive, plucked mode.
+- **GATE** (the default for new patches and the melodic presets). A key press is a trigger, as in TRIG, but the
+  volume follows the ADSR of the ENV page: the note sounds while the key is held, ends with RELEASE, and every knob
+  is heard as you turn it. It is ENV → LEVEL without a matrix slot; a route of your own to LEVEL replaces it.
+- **TRIG** ("a cable in TRIG", the module's own behaviour). A key press is a trigger: the internal LPG is pinged and
+  the sound decays at the **DECAY** rate (FX) even while the key is held: a percussive, plucked mode. A knob turned
+  after the hit is heard on the next note, since the note has died away. The drum, STRING and MODAL presets use it.
   Its internal decay envelope also modulates FREQ / TIMBRE / MORPH through the attenuverters of the SCL page.
   The exception is 6-OP FM I–III: they have their own DX7 envelopes, follow the gate and sound while the key is held.
 - **DRONE** ("no cable"). The LPG is off, the sound is continuous and the keys only change the pitch. The
   attenuverters act as on the module without cables: FM is a fine tune within ±1 semitone. The drum models go into
   sustain, as on the module (a continuous tone without a hit), and STRING and MODAL are excited all the time.
 
-To make a note sound while the key is held, route **ENV → LEVEL 100** in the matrix. That is the envelope into the
-LEVEL jack: the LPG stops pinging and opens with the envelope (preset P9 does it). The LEVEL depth is the gain
-itself: SUSTAIN 50 is half the amplitude (the module's LEVEL input is compressed so that everything above ~0.77
+GATE and a route to **LEVEL** both put an envelope into the module's LEVEL jack: the LPG stops pinging and opens
+with it (preset P9 routes ENV → LEVEL 100 itself). The LEVEL depth is the gain itself: SUSTAIN 50 is half the amplitude (the module's LEVEL input is compressed so that everything above ~0.77
 sounds equally loud; GATOR undoes that). While anything is routed to LEVEL, the FX page's DECAY does not slow the
 fall: the envelope's DECAY and RELEASE set it. The LPG still softens the very shortest falls a little (a tail of
 some tens of milliseconds).
@@ -225,7 +228,7 @@ The voice is monophonic with last-note priority: release a note and the previous
 Any other page button cancels. An asterisk after the preset number in the status line (`P3*`) means unsaved
 changes. The global settings are saved with the preset. The sound pauses while writing (a fraction of a second).
 
-Factory presets:
+Factory presets (in GATE, except P3 and P12–P16 in TRIG and P10 in DRONE):
 
 | | Model | What it shows |
 |---|---|---|
@@ -293,7 +296,7 @@ USB-MIDI and TRS MIDI IN (3.5 mm); the channel is set on the GLO page.
 
 ## Screen
 
-The status line: `TRIG` / `DRONE`, `HOLD`, the preset number (`*`: changed), the octave, and the audio interrupt's
+The status line: the play mode (`GATE` / `TRIG` / `DRONE`), `HOLD`, the preset number (`*`: changed), the octave, and the audio interrupt's
 load in percent. Above 75% the number turns red; `%!` means the overload guard skipped audio (below).
 
 ## Limits

@@ -259,6 +259,10 @@ void render_block(const macro_patch_t& p, const macro_global_t& g) {
         dst[r.dst] += src[r.src] * static_cast<float>(r.amount) * 0.01f;
         patched |= 1u << r.dst;
     }
+    if (p.mode == MODE_GATE && !((patched >> DST_LEVEL) & 1u)) {
+        dst[DST_LEVEL] = src[SRC_ENV];
+        patched |= 1u << DST_LEVEL;
+    }
 
     const float bend = static_cast<float>(ctl_bend) / 8192.0f * static_cast<float>(g.bend_range);
     patch.note = note_current + static_cast<float>(p.transpose) + bend + static_cast<float>(g.fine) * 0.01f;
@@ -279,11 +283,11 @@ void render_block(const macro_patch_t& p, const macro_global_t& g) {
     mod.timbre = dst[DST_TIMBRE];
     mod.morph = dst[DST_MORPH];
     mod.level = level_cv(dst[DST_LEVEL]);
-    mod.trigger = !p.drone && gate && retrigger_blocks == 0 ? 1.0f : 0.0f;
+    mod.trigger = p.mode != MODE_DRONE && gate && retrigger_blocks == 0 ? 1.0f : 0.0f;
     mod.frequency_patched = (patched >> DST_PITCH) & 1u;
     mod.timbre_patched = (patched >> DST_TIMBRE) & 1u;
     mod.morph_patched = (patched >> DST_MORPH) & 1u;
-    mod.trigger_patched = !p.drone;
+    mod.trigger_patched = p.mode != MODE_DRONE;
     mod.level_patched = (patched >> DST_LEVEL) & 1u;
     if (retrigger_blocks > 0)
         retrigger_blocks--;
