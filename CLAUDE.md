@@ -8,7 +8,8 @@ dspaudio/orbit (GPL-3.0-only). The DSP is Plaits (MIT, `third_party/eurorack`). 
   selects one (default `gator`; `demo` is the small example). The logo is drawn in canvas strips (LCD DMA reads RAM only).
 - C is built without FPU (generic, as ORBIT); C++ with `-mcpu=r3 -mfprev1`. Cross the boundary with ints/pointers only.
   No static constructors (build fails on `.init_array`). `third_party/eurorack` changes go in its `PATCHES.md`.
-  Do not use "Mutable Instruments" or "Plaits" in the product's name or on its screen (the author's guidelines).
+  Do not use "Mutable Instruments" or "Plaits" in the product's name or on its screen (the author's guidelines);
+  in texts say "inspired by Mutable Instruments Plaits", credit Emilie Gillet's DSP code, and add "not affiliated with or endorsed by".
 - Plaits' `Voice::Render` must get exactly `kBlockSize` (12) frames: its envelopes assume it.
 - The sample rate lives in `firmware/sys/fw_rate.h` only (C, C++ and the HAL clock bit); `--fs 48` (build and sim) selects
   the 48 kHz ALNK clock (both rates run on the author's unit). `FW_FS` is the rounded integer, `FW_FS_HZ` the exact float.

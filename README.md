@@ -5,7 +5,7 @@
 <h1 align="center">GATOR</h1>
 
 <p align="center">
-  A macro-oscillator firmware for the M-VAVE FM-1<br>
+  A macro-oscillator firmware for the M-VAVE FM-1, inspired by Mutable Instruments Plaits<br>
   <a href="https://npi3pak.github.io/fm1-gator/"><b>Web installer</b></a> ·
   <a href="docs/MANUAL.md">Manual</a> ·
   <a href="https://github.com/npi3pak/fm1-gator/releases">Releases</a> ·
@@ -17,9 +17,10 @@
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-GPL--3.0--only-blue"></a>
 </p>
 
-GATOR (as in alligator) turns the M-VAVE FM-1 into a monophonic macro-oscillator synth. Its sound engine is the
-open-source DSP of Emilie Gillet's Plaits, unchanged, with the module's CV inputs replaced by a modulation matrix and
-its knobs by the FM-1's encoders.
+GATOR (as in alligator) turns the M-VAVE FM-1 into a monophonic macro-oscillator synth, inspired by Mutable
+Instruments Plaits. Its sound engine is the open-source DSP code of Emilie Gillet's Plaits (MIT), unchanged, with the
+module's CV inputs replaced by a modulation matrix and its knobs by the FM-1's encoders. GATOR is an independent
+project, not affiliated with or endorsed by Mutable Instruments.
 
 - 24 synthesis models in 3 banks: virtual analog, waveshaping, FM (2-op and DX7-style 6-op), formant, harmonic,
   wavetable, chords, speech, granular, noise, physical models and drums
@@ -76,7 +77,7 @@ firmware on it.
 GATOR is made by [npi3pak](https://github.com/npi3pak). It stands on the work of:
 
 - **Emilie Gillet**: [Plaits](https://github.com/pichenettes/eurorack) and stmlib, the synthesis DSP (MIT).
-  GATOR is not affiliated with Mutable Instruments.
+  Not affiliated with or endorsed by Mutable Instruments.
 - **Leo Kuroshita, Hügelton Instruments**: [Felucca](https://github.com/hugelton/Felucca), the FM-1 platform: HAL,
   update loader, USB-MIDI, OTA, storage and installers (GPL-3.0).
 - **dspaudio**: [ORBIT](https://github.com/dspaudio/orbit), the platform GATOR was cut down from.

@@ -152,7 +152,7 @@ jobs:
           {
             if [ -f "docs/releases/$VERSION.md" ]; then cat "docs/releases/$VERSION.md"; echo; echo "---"; echo; fi
             sed "s/@VERSION@/$VERSION/g" <<'EOT'
-          GATOR @VERSION@ for the M-VAVE FM-1.
+          GATOR @VERSION@ for the M-VAVE FM-1, a macro-oscillator inspired by Mutable Instruments Plaits (not affiliated with or endorsed by Mutable Instruments).
 
           Install from the browser at https://npi3pak.github.io/fm1-gator/ (Chrome or Edge, the FM-1 connected by USB), or with the command-line installer: `python3 tools/fm1_install.py gator-@VERSION@.fwsc`.
 

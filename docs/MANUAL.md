@@ -1,9 +1,10 @@
 # GATOR manual
 
 GATOR (as in alligator) turns the M-VAVE FM-1 into a monophonic macro-oscillator: 24 synthesis models, a low-pass
-gate, an ADSR envelope and two LFOs, an 8-slot modulation matrix and 16 presets. The sound engine is the open-source
-DSP code of Emilie Gillet's Plaits (MIT), with its algorithms unchanged: the same sound as the module, with the CV
-inputs replaced by a modulation matrix and the knobs by the FM-1's encoders.
+gate, an ADSR envelope and two LFOs, an 8-slot modulation matrix and 16 presets. It is inspired by Mutable
+Instruments Plaits: the sound engine is the open-source DSP code of Emilie Gillet's Plaits (MIT), with its algorithms
+unchanged, so it sounds like the module, with the CV inputs replaced by a modulation matrix and the knobs by the
+FM-1's encoders. Not affiliated with or endorsed by Mutable Instruments.
 
 ![The pages](img/gator-pages.png)
 
