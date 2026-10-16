@@ -5,7 +5,7 @@ extern uint32_t _pool_start[], _pool_end[], _rt_start[], _rt_end[], _rt_load[];
 
 #define FW_UBOOT_HOLD_MS 5000u
 #define FW_FRAME_MS 15u
-#define FW_SPLASH_MS 2500u          /* the splash stays this long, counted from drawing it */
+#define FW_SPLASH_MS 1000u          /* the splash stays this long, counted from drawing it */
 #ifndef FW_UBOOT_COMBO
 #define FW_UBOOT_COMBO 1
 #endif
