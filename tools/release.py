@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 npi3pak
-"""Build the GATOR release folder: both packages, their checksums and every licence they need.
+"""Build the GATOR release folder: the package, its checksum and every licence it needs.
 
   tools/release.py X.Y            -> build/release-X.Y/
-      gator-X.Y.fwsc              44.1 kHz (identity FM-1_9XY, version X.Y on the splash)
-      gator-X.Y-48k.fwsc          48 kHz
-      SHA256SUMS                  both packages
-      LICENSE LICENSING.md LICENSES/   GPL-3.0 and the third-party licences (the packages hold Apache-2.0 SDK files)
+      gator-X.Y.fwsc              the package, 48 kHz (identity FM-1_9XY, version X.Y on the splash)
+      SHA256SUMS                  its SHA-256
+      LICENSE LICENSING.md LICENSES/   GPL-3.0 and the third-party licences (the package holds Apache-2.0 SDK files)
 
 JIELI_TOOLCHAIN defaults to ~/.jieli/toolchain (tools/get_toolchain.sh), AC79_SDK to tools/sdk.
 """
@@ -20,7 +19,7 @@ import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1]
-VARIANTS = [("44", ""), ("48", "-48k")]
+VARIANTS = [("48", "")]
 
 
 def main():

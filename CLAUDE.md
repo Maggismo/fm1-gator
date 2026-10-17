@@ -11,8 +11,8 @@ dspaudio/orbit (GPL-3.0-only). The DSP is Plaits (MIT, `third_party/eurorack`). 
   Do not use "Mutable Instruments" or "Plaits" in the product's name or on its screen (the author's guidelines);
   in texts say "inspired by Mutable Instruments Plaits", credit Emilie Gillet's DSP code, and add "not affiliated with or endorsed by".
 - Plaits' `Voice::Render` must get exactly `kBlockSize` (12) frames: its envelopes assume it.
-- The sample rate lives in `firmware/sys/fw_rate.h` only (C, C++ and the HAL clock bit); `--fs 48` (build and sim) selects
-  the 48 kHz ALNK clock (both rates run on the author's unit). `FW_FS` is the rounded integer, `FW_FS_HZ` the exact float.
+- The sample rate lives in `firmware/sys/fw_rate.h` only (C, C++ and the HAL clock bit); 48 kHz is the default and the only
+  released package; `--fs 44` (build and sim) is kept for comparison (`gator-44k.fwsc`). `FW_FS` is the rounded integer, `FW_FS_HZ` the exact float.
 - `firmware/hal/`, `firmware/loader/`, `sys/usb.c`, `sys/ota.c`, `sys/recovery.c`, `sys/storage.c`, `sys/midi_uart.c`
   come from ORBIT and are hardware-verified there: change them only with a reason. The loader must stay byte-identical
   unless deliberately changed (it is what makes reflashing safe).

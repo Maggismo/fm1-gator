@@ -47,7 +47,7 @@ CXXFLAGS = ["-mcpu=r3", "-mfprev1", "-O2", "-std=gnu++11", "-DTEST", "-fno-math-
             "-Wframe-larger-than=1024",
             "-Ifirmware/cxx", "-Ifirmware/sys", "-Ithird_party/eurorack"]
 APP = os.environ.get("FW_APP", "gator")   # firmware/apps/APP: --app
-FS48 = os.environ.get("FW_FS48") == "1"   # the 48 kHz codec clock (firmware/sys/fw_rate.h): --fs 48
+FS48 = os.environ.get("FW_FS48", "1") == "1"   # the 48 kHz codec clock, the default (firmware/sys/fw_rate.h); --fs 44
 CXX_TARGET_ONLY = ["firmware/cxx/runtime.cc"]
 LIBS = ["libm.a", "libcompiler_rt.a"]
 ELF_SECTIONS = {".text", ".ram_text", ".data", ".bss", ".pool", ".noinit"}
@@ -404,7 +404,7 @@ def rate_flags():
 
 
 def build_tag():
-    return APP + ("-48k" if FS48 else "")
+    return APP + ("" if FS48 else "-44k")
 
 
 def main():
@@ -414,8 +414,8 @@ def main():
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK, else tools/sdk)")
     ap.add_argument("--app", default=APP, help=f"firmware/apps/APP to build (default: {APP})")
     ap.add_argument("--fs", choices=("44", "48"), default="48" if FS48 else "44",
-                    help="codec rate: 44 = 44.1 kHz family (default), 48 = 48 kHz")
-    ap.add_argument("--name", help="package file name without .fwsc (default: the app name, -48k with --fs 48)")
+                    help="codec rate: 48 = 48 kHz (default), 44 = the 44.1 kHz family")
+    ap.add_argument("--name", help="package file name without .fwsc (default: the app name, -44k with --fs 44)")
     a = ap.parse_args()
     set_app(a.app)
     set_fs(a.fs)

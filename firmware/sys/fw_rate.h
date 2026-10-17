@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 npi3pak */
-/* The codec rate: ALNK0 MCLK = 192 MHz / 17 (44.1 kHz family) or 160 MHz / 13 (48 kHz, FW_FS48=1), fs = MCLK / 256.
+/* The codec rate: ALNK0 MCLK = 160 MHz / 13 (48 kHz, the default) or 192 MHz / 17 (44.1 kHz family, FW_FS48=0),
+ * fs = MCLK / 256.
  * Plain macros: C++ (third_party/eurorack/plaits/dsp/dsp.h) includes this too. */
 #ifndef FW_RATE_H
 #define FW_RATE_H
 
 #ifndef FW_FS48
-#define FW_FS48 0
+#define FW_FS48 1
 #endif
 #if FW_FS48
 #define FW_MCLK_HZ 160000000u

@@ -7,7 +7,7 @@ the update loader, USB-MIDI, OTA, flash storage and the `.fwsc` packer. Everythi
 | | |
 |---|---|
 | Screen | ST7789 240×240 RGB565, drawn in strips through a canvas of up to 240×124 (no frame buffer) |
-| Audio | I2S stereo at 44.1 kHz (or 48 kHz with `--fs 48`), `app_audio()` called from the interrupt for 256 frames (5.8 ms) |
+| Audio | I2S stereo at 48 kHz (or 44.1 kHz with `--fs 44`), `app_audio()` called from the interrupt for 256 frames (5.8 ms) |
 | Input | 27 note keys, 14 buttons, 7 encoders, the MASTER pot, the battery |
 | LEDs | under every key and button |
 | MIDI | USB-MIDI in / out, TRS MIDI IN (3.5 mm) |

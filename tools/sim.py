@@ -87,7 +87,7 @@ def main():
     ap.add_argument("--app", default=build.APP)
     ap.add_argument("--no-sanitize", action="store_true")
     ap.add_argument("--test", action="store_true")
-    ap.add_argument("--fs", choices=("44", "48"), default="44")
+    ap.add_argument("--fs", choices=("44", "48"), default="48")
     a = ap.parse_args()
     build.set_app(a.app)
     build.set_fs(a.fs)

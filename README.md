@@ -29,7 +29,7 @@ project, not affiliated with or endorsed by Mutable Instruments.
   (LFO, envelope, velocity, note, mod wheel, aftertouch, random, gate)
 - GATE (the note sounds while held), TRIG (plucked, as the module) and DRONE play modes, HOLD, glide, legato
 - 16 presets in flash, USB-MIDI and TRS MIDI in
-- 44.1 kHz and 48 kHz builds
+- 48 kHz audio
 
 ![The pages](docs/img/gator-pages.png)
 
@@ -44,7 +44,7 @@ project, not affiliated with or endorsed by Mutable Instruments.
 1. Charge the FM-1 and plug it straight into the computer with a data cable. Close apps that use MIDI.
 2. Open the **[web installer](https://npi3pak.github.io/fm1-gator/)** in Chrome or Edge (Safari and Firefox have no
    Web MIDI with SysEx).
-3. Pick GATOR (44.1 kHz, recommended) or GATOR 48k and press **Install**. Leave the cable alone until it says Done.
+3. Press **Install**. Leave the cable alone until it says Done.
 
 From the command line, with a package from [Releases](https://github.com/npi3pak/fm1-gator/releases):
 

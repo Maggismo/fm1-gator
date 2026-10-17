@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# Build and test every push and pull request: both GATOR packages and the demo app (the JieLi toolchain, natively on
-# ubuntu x86-64), the host simulator under ASan / UBSan at both rates, the storage test and the installer's protocol.
+# Build and test every push and pull request: the GATOR package and the demo app (the JieLi toolchain, natively on
+# ubuntu x86-64), the host simulator under ASan / UBSan, the storage test and the installer's protocol.
 name: ci
 
 on:
@@ -61,17 +61,14 @@ jobs:
           set -euo pipefail
           ulimit -n 8192 || true
           ./build.sh
-          ./build.sh --fs 48
           ./build.sh --app demo
           ls -l build/*.fwsc
 
       - name: Host simulator and tests
         run: |
           set -euo pipefail
-          for fs in 44 48; do
-            python3 tools/sim.py --fs "$fs"
-            python3 tools/sim.py --fs "$fs" host/models.sim
-          done
+          python3 tools/sim.py
+          python3 tools/sim.py host/models.sim
           python3 tools/sim.py --app demo
           python3 tools/sim.py --test
 
@@ -79,6 +76,5 @@ jobs:
         run: |
           set -euo pipefail
           node web/test_web.mjs build/gator.fwsc
-          node web/test_web.mjs build/gator-48k.fwsc
           python3 web/make_site.py
           (cd build/site/firmware && sha256sum -c SHA256SUMS)

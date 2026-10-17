@@ -4,12 +4,12 @@
 """Make the installer site, a static folder for GitHub Pages (or any HTTPS / localhost server):
 
   index.html installer.js fm1ota.js fm1pkg.js logo.jpg   the page (web/)
-  firmware/gator-VERSION.fwsc, gator-VERSION-48k.fwsc    the packages
-  firmware/manifest.json                                 their titles, identity, size and SHA-256 (the page checks it)
-  firmware/SHA256SUMS LICENSE LICENSING.md LICENSES/     what goes with the packages (GPL-3.0, the SDK's Apache-2.0)
+  firmware/gator-VERSION.fwsc                            the package
+  firmware/manifest.json                                 its title, identity, size and SHA-256 (the page checks it)
+  firmware/SHA256SUMS LICENSE LICENSING.md LICENSES/     what goes with the package (GPL-3.0, the SDK's Apache-2.0)
 
-  python3 web/make_site.py --release build/release-X.Y   the release folder of tools/release.py (both packages needed)
-  python3 web/make_site.py                               local builds: build/gator.fwsc and build/gator-48k.fwsc
+  python3 web/make_site.py --release build/release-X.Y   the release folder of tools/release.py
+  python3 web/make_site.py                               the local build: build/gator.fwsc
   python3 -m http.server -d build/site 8000              then http://localhost:8000 in Chrome or Edge
 """
 import argparse
@@ -29,10 +29,8 @@ REPO = "https://github.com/npi3pak/fm1-gator"
 PAGE = ["index.html", "installer.js", "fm1ota.js", "fm1pkg.js", "logo.jpg"]
 LOADER_MARK = b"FELUCCA-LOADER-1"
 PACKAGES = [
-    {"id": "gator", "suffix": "", "title": "GATOR", "tag": "recommended",
-     "desc": "44.1 kHz codec clock."},
-    {"id": "gator-48k", "suffix": "-48k", "title": "GATOR 48k", "tag": "48 kHz",
-     "desc": "48 kHz, the DSP's native rate: about 9% more CPU load."},
+    {"id": "gator", "suffix": "", "title": "GATOR", "tag": "",
+     "desc": "Macro-oscillator synth for the M-VAVE FM-1, 48 kHz."},
 ]
 
 
@@ -70,7 +68,7 @@ def main():
     if a.release and len(present) != len(wanted):
         raise SystemExit(f"{folder}: missing {[f for m, f in wanted if (m, f) not in present]}")
     if not present:
-        raise SystemExit(f"no packages in {folder}: ./build.sh (and ./build.sh --fs 48), or tools/release.py X.Y")
+        raise SystemExit(f"no package in {folder}: ./build.sh, or tools/release.py X.Y")
     if a.out.exists():
         shutil.rmtree(a.out)
     fw = a.out / "firmware"

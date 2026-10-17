@@ -13,13 +13,12 @@ SDK checkout instead. `tools/build.py` checks their SHA-256.
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 sh tools/get_toolchain.sh
-PYTHON=.venv/bin/python ./build.sh                 # build/gator.fwsc       (44.1 kHz)
-PYTHON=.venv/bin/python ./build.sh --fs 48         # build/gator-48k.fwsc   (48 kHz)
+PYTHON=.venv/bin/python ./build.sh                 # build/gator.fwsc       (48 kHz)
 PYTHON=.venv/bin/python ./build.sh --app demo      # build/demo.fwsc        (the small demo synth)
 ```
 
-Options: `--app NAME` (`firmware/apps/NAME`, default `gator`), `--fs 44|48` (the codec clock,
-`firmware/sys/fw_rate.h`), `--name NAME` (the package's file name), `--release X.Y` (identity `FM-1_9XY`, version
+Options: `--app NAME` (`firmware/apps/NAME`, default `gator`), `--fs 48|44` (the codec clock,
+`firmware/sys/fw_rate.h`: 48 kHz by default; 44 builds `gator-44k.fwsc` at 44.1 kHz for comparison), `--name NAME` (the package's file name), `--release X.Y` (identity `FM-1_9XY`, version
 `X.Y` on the splash). Environment: `FW_UART=0` (no TRS MIDI), `FW_UBOOT_COMBO=0` (no OCT−+OCT+ 5 s), `FELUCCA_OTA_DRYRUN=1`
 (an update runs to the end but writes nothing), `JOBS=N` (parallel C++ compiles). C++ is rebuilt incrementally
 (`build/cxx/APP/`).
@@ -47,7 +46,6 @@ WAV, the screen to PNG. It says nothing about timing or CPU load: that is measur
 ```bash
 .venv/bin/python tools/sim.py                      # host/gator.sim -> build/host/out/*.png
 .venv/bin/python tools/sim.py host/models.sim      # all 24 models in turn, models.wav
-.venv/bin/python tools/sim.py --fs 48              # the same at 48 kHz
 .venv/bin/python tools/sim.py --app demo
 .venv/bin/python tools/sim.py --test               # storage test (A/B slots, an interrupted write)
 node web/test_web.mjs build/gator.fwsc             # the installer's protocol against an emulated FM-1
@@ -62,9 +60,9 @@ A release is a tag `vX.Y` (one digit each: the package identity is `FM-1_9XY`).
 
 1. Add `docs/releases/X.Y.md` (the release notes) and commit.
 2. `git tag v0.1 && git push origin v0.1`.
-3. `.github/workflows/release.yml` builds both packages (`tools/release.py`), runs the simulator and the installer
-   test, and creates the GitHub release with `gator-X.Y.fwsc`, `gator-X.Y-48k.fwsc`, `SHA256SUMS` and the licences.
-4. It then starts `.github/workflows/pages.yml`, which takes the packages from the release, checks them against
+3. `.github/workflows/release.yml` builds the package (`tools/release.py`), runs the simulator and the installer
+   test, and creates the GitHub release with `gator-X.Y.fwsc`, `SHA256SUMS` and the licences.
+4. It then starts `.github/workflows/pages.yml`, which takes the package from the release, checks it against
    `SHA256SUMS`, makes the site (`web/make_site.py --release`) and deploys it to GitHub Pages.
 
 The same locally: `tools/release.py X.Y` makes `build/release-X.Y/`, and

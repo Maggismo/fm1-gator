@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
 # Modified for GATOR by npi3pak, 2026, from ORBIT 0.6.0 (dspaudio/orbit)
-#   ./build.sh [--app NAME] [--fs 44|48] [--release X.Y] [--name NAME]
+#   ./build.sh [--app NAME] [--fs 48|44] [--release X.Y] [--name NAME]
 #   JIELI_TOOLCHAIN  JieLi Linux toolchain (default: ~/.jieli/toolchain)
 #   AC79_SDK         JieLi AC79 SDK checkout (default: tools/sdk, the three files the package needs)
 set -e

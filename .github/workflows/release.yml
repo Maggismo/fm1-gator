@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Build a GATOR release (BUILDING.md, "Releasing").
-#   push of a tag vX.Y  -> build both packages (tools/release.py), test them, create or update the GitHub release vX.Y
-#                          with the packages, SHA256SUMS and the licences, then start pages.yml
+#   push of a tag vX.Y  -> build the package (tools/release.py), test it, create or update the GitHub release vX.Y
+#                          with the package, SHA256SUMS and the licences, then start pages.yml
 #   workflow_dispatch   -> build only; the release folder is a workflow artifact
 # On ubuntu (x86-64) tools/build.py runs the JieLi toolchain natively, no Docker.
 name: release
@@ -88,7 +88,7 @@ jobs:
           ulimit -n 8192 || true
           python3 tools/release.py "$VERSION"
           rel="build/release-$VERSION"
-          for f in "gator-$VERSION.fwsc" "gator-$VERSION-48k.fwsc" SHA256SUMS LICENSE LICENSING.md; do
+          for f in "gator-$VERSION.fwsc" SHA256SUMS LICENSE LICENSING.md; do
             if [ ! -s "$rel/$f" ]; then
               echo "::error::$rel/$f is missing"
               exit 1
@@ -101,13 +101,10 @@ jobs:
         run: |
           set -euo pipefail
           rel="build/release-$VERSION"
-          for fs in 44 48; do
-            python3 tools/sim.py --fs "$fs"
-            python3 tools/sim.py --fs "$fs" host/models.sim
-          done
+          python3 tools/sim.py
+          python3 tools/sim.py host/models.sim
           python3 tools/sim.py --test
           node web/test_web.mjs "$rel/gator-$VERSION.fwsc"
-          node web/test_web.mjs "$rel/gator-$VERSION-48k.fwsc"
           python3 web/make_site.py --release "$rel"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -141,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir assets
-          for f in "gator-$VERSION.fwsc" "gator-$VERSION-48k.fwsc" SHA256SUMS LICENSE LICENSING.md LICENSES.zip; do
+          for f in "gator-$VERSION.fwsc" SHA256SUMS LICENSE LICENSING.md LICENSES.zip; do
             cp "release/$f" assets/
           done
           ls -l assets
@@ -156,7 +153,7 @@ jobs:
 
           Install from the browser at https://npi3pak.github.io/fm1-gator/ (Chrome or Edge, the FM-1 connected by USB), or with the command-line installer: `python3 tools/fm1_install.py gator-@VERSION@.fwsc`.
 
-          `gator-@VERSION@.fwsc` runs at 44.1 kHz (recommended), `gator-@VERSION@-48k.fwsc` at 48 kHz. `SHA256SUMS` lists both. Each package holds three JieLi AC79 SDK files (Apache-2.0); `LICENSE`, `LICENSING.md` and `LICENSES.zip` carry every licence (GPL-3.0-only; Plaits and stmlib DSP by Emilie Gillet, MIT; Terminus font, OFL 1.1; JieLi SDK files, Apache-2.0). The complete source of this release is the tag v@VERSION@.
+          `gator-@VERSION@.fwsc` is the package (48 kHz); `SHA256SUMS` lists its SHA-256. The package holds three JieLi AC79 SDK files (Apache-2.0); `LICENSE`, `LICENSING.md` and `LICENSES.zip` carry every licence (GPL-3.0-only; Plaits and stmlib DSP by Emilie Gillet, MIT; Terminus font, OFL 1.1; JieLi SDK files, Apache-2.0). The complete source of this release is the tag v@VERSION@.
 
           **Installing custom firmware is at your own risk.** GATOR is provided as is, without any warranty.
           EOT

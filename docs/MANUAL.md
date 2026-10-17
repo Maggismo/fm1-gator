@@ -31,15 +31,8 @@ pip install mido python-rtmidi
 python3 tools/fm1_install.py gator-0.1.fwsc
 ```
 
-Two packages are offered:
-
-| Package | Sample rate | |
-|---|---|---|
-| `gator-X.Y.fwsc` | 44 117.6 Hz (192 MHz / 17 / 256) | the default, the codec clock of the platform |
-| `gator-X.Y-48k.fwsc` | 48 076.9 Hz (160 MHz / 13 / 256) | the DSP's native rate, about 9% more CPU load |
-
-The DSP computes its tuning from the real rate in both. Both packages carry the same update loader, so you can
-switch between them, to another Felucca-platform firmware (SLOOP, ORBIT, ChoralRoot, AMB-1) or back to the official
+GATOR runs at 48 kHz (48 076.9 Hz: 160 MHz / 13 / 256, the DSP computes its tuning from the real rate). The
+package carries the Felucca platform's update loader, so you can switch to another Felucca-platform firmware (SLOOP, ORBIT, ChoralRoot, AMB-1) or back to the official
 firmware (the web installer's "Back to the official firmware") at any time.
 
 ### First start
