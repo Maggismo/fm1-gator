@@ -842,7 +842,7 @@ static uint32_t gen_ts[25], gen_ts_n;            /* the last clock pulses, in sa
 /* shared with the audio interrupt */
 static volatile gstep_t gen_live[GEN_STEPS], gen_pend[GEN_STEPS];
 static volatile uint8_t gen_pend_ok, gen_len_isr = GEN_CELL, gen_on, gen_start_req, gen_stop_req;
-static volatile uint8_t gen_step_now, gen_type_now;
+static volatile uint8_t gen_step_now, gen_type_now, gen_page_on;   /* (gen_page_on: on its pages, only its voices sound) */
 static volatile int8_t gen_gate_add;            /* (LENGTH, on the gates, in pulses) */
 static volatile uint32_t gen_ext_pulses, gen_spp_q8 = 30720000u / 124u, gen_cycles, seq_samples, gen_ext_k, gen_ext_t;
 static const macro_patch_t *volatile gen_patch_p[3];
@@ -1657,7 +1657,13 @@ static void handle_buttons(const fw_input_t *in)
         save_slot = bank.current;
         set_page(PAGE_SAVE);
     }
-    if (in->pressed & FW_BIT(FW_BTN_PLAY)) {
+    if ((in->pressed & FW_BIT(FW_BTN_PLAY)) && GENP(page)) {   /* (0.5.1) the generator's pages: PLAY starts and
+                                                                * stops it (never the preset's TRIG / GATE / DRONE) */
+        if (gen_ext_run)
+            message("RUNS ON THE CLOCK", in->ms);
+        else
+            gen_run(!gen_int_run);
+    } else if (in->pressed & FW_BIT(FW_BTN_PLAY)) {
         patch.mode = MODE_NEXT[patch.mode];
         dirty |= FW_BIT(D_STATUS);
     }
@@ -1810,7 +1816,7 @@ static void update_leds(const fw_input_t *in)
     uint32_t i;
     for (i = 0; i < PAGES; i++)
         fw_led_button(PAGE_LED[i], i == page);
-    fw_led_button(FW_BTN_PLAY, patch.mode != MODE_TRIG);
+    fw_led_button(FW_BTN_PLAY, GENP(page) ? gen_on : patch.mode != MODE_TRIG);
     fw_led_button(FW_BTN_REC, hold);
     if (in->held & FW_BIT(FW_BTN_HOME)) {
         fw_leds_keys(FW_BIT(patch.engine));
@@ -1847,6 +1853,7 @@ static void app_frame(const fw_input_t *in)
     handle_knobs(in);
     handle_keys(in);
     handle_midi();
+    gen_page_on = (uint8_t)GENP(page);
     gen_hold_check(in->ms);
     gen_frame(in->ms);
     if (GENP(page)) {
@@ -1899,7 +1906,9 @@ static void app_audio(int32_t *lr, uint32_t frames)
         if (over)
             memset(lr + 2u * done, 0, n * 2u * sizeof *lr);
         else
-            macro_render(gen_on && gen_type_now ? gen_patch_p[gen_type_now] : &patch, &global, lr + 2u * done, n);
+            macro_render(gen_on && gen_type_now ? gen_patch_p[gen_type_now]
+                         : gen_page_on      ? gen_patch_p[gen_type_now ? gen_type_now : G_CALL]   /* (never a drone) */
+                                            : &patch, &global, lr + 2u * done, n);
         done += n;
         gi_frame = seq_samples + done;
         if (gen_on)
