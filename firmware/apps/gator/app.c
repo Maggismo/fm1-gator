@@ -41,6 +41,8 @@ typedef struct {
 #define GEN_CELL 8u                              /* sixteenths a cell: two beats */
 #define GEN_STEPS 16u
 #define GEN_CALLS 3u
+#define GEN_CALL_BASE 48                         /* C3: the call's root (its notes a fifth, a seventh, a ninth above) */
+#define GEN_ANS_BASE 36                          /* C2: the answer's, an octave under the call */
 #define GEN_PPS 6u                               /* clock pulses a sixteenth (24 a beat) */
 enum { G_NONE, G_CALL, G_ANS };
 enum { SC_MINOR, SC_DORIAN, SC_PHRYG, SC_PENTA, SCALES };
@@ -913,11 +915,11 @@ static void gen_render(gstep_t *s, int vary)
             const uint32_t p = k * GEN_CELL + (uint32_t)a->pos, q = k * GEN_CELL + gen_offbeat((uint32_t)(a->pos + a->off)),
                            q2 = k * GEN_CELL + gen_offbeat(q % GEN_CELL + (uint32_t)a->dbl);
             if (s[p].type == G_NONE)
-                s[p] = (gstep_t){G_CALL, (uint8_t)gen_note(60, a->cdeg), (uint8_t)(96 + gen_r(16)), 2};
+                s[p] = (gstep_t){G_CALL, (uint8_t)gen_note(GEN_CALL_BASE, a->cdeg), (uint8_t)(96 + gen_r(16)), 2};
             if (s[q].type == G_NONE)
-                s[q] = (gstep_t){G_ANS, (uint8_t)gen_note(60, a->adeg), (uint8_t)(104 + gen_r(16)), a->dbl ? 3 : 5};
+                s[q] = (gstep_t){G_ANS, (uint8_t)gen_note(GEN_ANS_BASE, a->adeg), (uint8_t)(104 + gen_r(16)), a->dbl ? 3 : 5};
             if (a->dbl && s[q2].type == G_NONE)
-                s[q2] = (gstep_t){G_ANS, (uint8_t)gen_note(60, a->ddeg), (uint8_t)(84 + gen_r(16)), 4};
+                s[q2] = (gstep_t){G_ANS, (uint8_t)gen_note(GEN_ANS_BASE, a->ddeg), (uint8_t)(84 + gen_r(16)), 4};
         }
     }
 }
@@ -955,7 +957,7 @@ static void gen_sanitize(gen_t *g)
     g->len = g->len == 16 ? 16 : 8;
     clamp16(&g->density, 0, 100);
     clamp16(&g->variation, 0, 100);
-    clamp16(&g->reg, -2, 1);
+    clamp16(&g->reg, -2, 2);
     clamp16(&g->tempo, 60, 190);
     clamp16(&g->call_slot, 0, PRESETS - 1);
     clamp16(&g->ans_slot, 0, PRESETS - 1);
@@ -1207,7 +1209,7 @@ static void gen_knobs(const fw_input_t *in)
     int changed = 0;
     changed |= adjust(&g->density, knob_fast[FW_KNOB_1], 2, 0, 100);
     changed |= adjust(&g->variation, knob_fast[FW_KNOB_2], 2, 0, 100);
-    if (adjust(&g->reg, in->knob[FW_KNOB_3], 1, -2, 1)) {
+    if (adjust(&g->reg, in->knob[FW_KNOB_3], 1, -2, 2)) {
         changed = 1;
         gen_want = 1;
     }
