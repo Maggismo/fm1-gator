@@ -334,7 +334,9 @@ extern "C" void macro_init(void) {
 extern "C" void macro_render(const macro_patch_t* p, const macro_global_t* g, int32_t* lr, uint32_t frames) {
     const float blend = clampf(static_cast<float>(p->blend) * 0.01f, 0.0f, 1.0f);
     const float spread = clampf(static_cast<float>(p->spread) * 0.01f, 0.0f, 1.0f);
-    const float volume = clampf(static_cast<float>(g->volume) / 256.0f, 0.0f, 1.0f);
+    const float trim = p->reserved[0] ? powf(10.0f, clampf(static_cast<float>(p->reserved[0]), -120.0f, 120.0f) * 0.005f) : 1.0f;
+    const float volume = clampf(static_cast<float>(g->volume) / 256.0f, 0.0f, 1.0f) * trim;   /* (0.5: reserved[0], a level
+                                                                                                * trim in 0.1 dB) */
     for (uint32_t i = 0; i < frames; i++) {
         if (block_pos >= plaits::kBlockSize) {
             render_block(*p, *g);
@@ -366,6 +368,7 @@ extern "C" void macro_note_on_isr(uint8_t note, uint8_t velocity) {
     post_isr(EV_ON | static_cast<uint32_t>(note & 127u) << 8 | static_cast<uint32_t>(velocity & 127u) << 16);
 }
 extern "C" void macro_note_off_isr(uint8_t note) { post_isr(EV_OFF | static_cast<uint32_t>(note & 127u) << 8); }
+extern "C" void macro_all_notes_off_isr(void) { post_isr(EV_ALL_OFF); }
 
 extern "C" void macro_controller(uint8_t mod_wheel, uint8_t aftertouch, int16_t bend) {
     ctl_mod_wheel = mod_wheel;
@@ -399,59 +402,62 @@ static void macro_fx_clear(void) {                /* (the pool is not cleared at
 }
 
 extern "C" void macro_fx(int32_t* lr, uint32_t frames, int32_t echo_len, int32_t echo_amt, int32_t verb_amt) {
-    const float e_mix = clampf(static_cast<float>(echo_amt) * 0.01f, 0.0f, 1.0f) * 0.55f;
-    const float e_fb = 0.38f + 0.22f * clampf(static_cast<float>(echo_amt) * 0.01f, 0.0f, 1.0f);
-    const float v_mix = clampf(static_cast<float>(verb_amt) * 0.01f, 0.0f, 1.0f) * 0.55f;
+    /* (0.5) sends: turned down, the echoes and the plate ring out instead of stopping; then the safety net on the
+     * whole output: a high-pass at ~35 Hz (no rumble), a low-pass at ~8 kHz (nothing piercing), a soft limiter */
+    const float e_send = clampf(static_cast<float>(echo_amt) * 0.01f, 0.0f, 1.0f);
+    const float e_fb = 0.38f + 0.22f * e_send;
+    const float v_send = clampf(static_cast<float>(verb_amt) * 0.01f, 0.0f, 1.0f);
     const int len = echo_len < 64 ? 64 : echo_len > kEchoMax - 1 ? kEchoMax - 1 : static_cast<int>(echo_len);
-    if (e_mix <= 0.0f && v_mix <= 0.0f && echo_lp == 0.0f)
-        return;
+    const float kHp = 1.0f - 6.2832f * 35.0f / 48077.0f, kLp = 1.0f - expf(-6.2832f * 8000.0f / 48077.0f);
+    static float hp_x[2], hp_y[2], lp_y[2];
     for (uint32_t i = 0; i < frames; i++) {
         const float l = static_cast<float>(lr[2 * i]), r = static_cast<float>(lr[2 * i + 1]);
         const float in = (l + r) * 0.5f;
-        /* echo */
         int rd = echo_w - len;
         if (rd < 0)
             rd += kEchoMax;
         const float d = static_cast<float>(echo_buf[rd]);
         echo_lp += (d - echo_lp) * 0.32f;        /* (each repeat darker) */
-        const float wr = in * (e_mix > 0.0f ? 1.0f : 0.0f) + echo_lp * e_fb;
+        const float wr = in * e_send + echo_lp * e_fb;
         echo_buf[echo_w] = static_cast<int16_t>(wr > 32767.0f ? 32767.0f : wr < -32768.0f ? -32768.0f : wr);
         if (++echo_w >= kEchoMax)
             echo_w = 0;
-        float ol = l + d * e_mix, orr = r + d * e_mix;
-        /* plate */
-        if (v_mix > 0.0f) {
-            fx_in_lp += (in - fx_in_lp) * 0.45f;
-            const float vin = fx_in_lp * 0.015f;
-            for (int c = 0; c < 2; c++) {
-                float acc = 0.0f;
-                for (int k = 0; k < 4; k++) {
-                    const int n = kCombL[k] + c * kSpread;
-                    float* b = comb_buf[c][k];
-                    const float o = b[comb_i[c][k]];
-                    comb_lp[c][k] = o * 0.6f + comb_lp[c][k] * 0.4f;
-                    b[comb_i[c][k]] = vin + comb_lp[c][k] * 0.82f;
-                    if (++comb_i[c][k] >= n)
-                        comb_i[c][k] = 0;
-                    acc += o;
-                }
-                for (int k = 0; k < 2; k++) {
-                    const int n = kAllp[k] + c * kSpread;
-                    float* b = allp_buf[c][k];
-                    const float o = b[allp_i[c][k]];
-                    b[allp_i[c][k]] = acc + o * 0.5f;
-                    acc = o - acc;
-                    if (++allp_i[c][k] >= n)
-                        allp_i[c][k] = 0;
-                }
-                const float w = acc * v_mix * 11.0f;
-                if (c == 0)
-                    ol += w;
-                else
-                    orr += w;
+        float out[2] = {l + d * 0.55f, r + d * 0.55f};
+        fx_in_lp += (in * v_send - fx_in_lp) * 0.45f;
+        const float vin = fx_in_lp * 0.015f;
+        for (int c = 0; c < 2; c++) {
+            float acc = 0.0f;
+            for (int k = 0; k < 4; k++) {
+                const int n = kCombL[k] + c * kSpread;
+                float* b = comb_buf[c][k];
+                const float o = b[comb_i[c][k]];
+                comb_lp[c][k] = o * 0.6f + comb_lp[c][k] * 0.4f;
+                b[comb_i[c][k]] = vin + comb_lp[c][k] * 0.82f;
+                if (++comb_i[c][k] >= n)
+                    comb_i[c][k] = 0;
+                acc += o;
             }
+            for (int k = 0; k < 2; k++) {
+                const int n = kAllp[k] + c * kSpread;
+                float* b = allp_buf[c][k];
+                const float o = b[allp_i[c][k]];
+                b[allp_i[c][k]] = acc + o * 0.5f;
+                acc = o - acc;
+                if (++allp_i[c][k] >= n)
+                    allp_i[c][k] = 0;
+            }
+            float y = out[c] + acc * 0.55f * 11.0f;
+            const float hy = kHp * (hp_y[c] + y - hp_x[c]);  /* high-pass */
+            hp_x[c] = y;
+            hp_y[c] = hy;
+            lp_y[c] += (hy - lp_y[c]) * kLp;                /* low-pass */
+            float v = lp_y[c] * (1.0f / 30000.0f);           /* soft limiter: unity below ~-6 dB, never past full */
+            const float a = v < 0.0f ? -v : v;
+            if (a > 0.5f) {
+                const float over = a - 0.5f;
+                v = (v < 0.0f ? -1.0f : 1.0f) * (0.5f + over / (1.0f + over * 2.0f));
+            }
+            lr[2 * i + c] = static_cast<int32_t>(v * 30000.0f);
         }
-        lr[2 * i] = static_cast<int32_t>(ol);
-        lr[2 * i + 1] = static_cast<int32_t>(orr);
     }
 }
