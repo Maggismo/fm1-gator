@@ -37,6 +37,8 @@ size_t block_pos = plaits::kBlockSize;
 
 volatile uint32_t events[kEvents];
 volatile uint32_t events_w, events_r;
+uint32_t isr_events[kEvents];                   /* the call/answer generator's, posted from the audio interrupt */
+uint32_t isr_w, isr_r;
 volatile uint8_t ctl_mod_wheel, ctl_aftertouch;
 volatile int16_t ctl_bend;
 
@@ -225,6 +227,10 @@ void render_block(const macro_patch_t& p, const macro_global_t& g) {
         handle_event(events[events_r % kEvents], p, g);
         events_r = events_r + 1;
     }
+    while (isr_r != isr_w) {
+        handle_event(isr_events[isr_r % kEvents], p, g);
+        isr_r++;
+    }
 
     const float glide = p.glide <= 0 ? 1.0f : cached(&glide_coef, p.glide, 1.0f, -9.21f);
     note_current += (note_target - note_current) * glide;
@@ -347,6 +353,16 @@ extern "C" void macro_note_on(uint8_t note, uint8_t velocity) {
 extern "C" void macro_note_off(uint8_t note) { post(EV_OFF | static_cast<uint32_t>(note & 127u) << 8); }
 
 extern "C" void macro_all_notes_off(void) { post(EV_ALL_OFF); }
+
+/* from the audio interrupt only (the generator): a queue of its own, read in the same interrupt */
+static void post_isr(uint32_t ev) {
+    if (isr_w - isr_r < kEvents)
+        isr_events[isr_w++ % kEvents] = ev;
+}
+extern "C" void macro_note_on_isr(uint8_t note, uint8_t velocity) {
+    post_isr(EV_ON | static_cast<uint32_t>(note & 127u) << 8 | static_cast<uint32_t>(velocity & 127u) << 16);
+}
+extern "C" void macro_note_off_isr(uint8_t note) { post_isr(EV_OFF | static_cast<uint32_t>(note & 127u) << 8); }
 
 extern "C" void macro_controller(uint8_t mod_wheel, uint8_t aftertouch, int16_t bend) {
     ctl_mod_wheel = mod_wheel;

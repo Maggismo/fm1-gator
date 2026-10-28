@@ -61,12 +61,19 @@ static void host_render_until(uint32_t ms)
     }
 }
 
+static void host_midi(uint32_t status, uint32_t d1, uint32_t d2);
+static double host_clk_ms, host_clk_next;      /* (clock BPM: MIDI clock in, as the main loop would see it) */
+
 static void host_frames(uint32_t n)
 {
     fw_input_t in;
     while (n--) {
         fm1_ms += 15u;
         host_render_until(fm1_ms);
+        while (host_clk_ms > 0.0 && host_clk_next <= (double)fm1_ms) {
+            host_midi(0xF8u, 0, 0);
+            host_clk_next += host_clk_ms;
+        }
         fw_input_read(&in);
         app_frame(&in);
     }
@@ -193,6 +200,10 @@ static int host_command(char *line)
         host_write_ppm(a);
     if (str_eq(cmd, "wav"))
         host_write_wav(a);
+    if (str_eq(cmd, "clock")) {
+        host_clk_ms = atof(a) > 0.0 ? 60000.0 / (atof(a) * 24.0) : 0.0;
+        host_clk_next = (double)fm1_ms;
+    }
     if (str_eq(cmd, "bench"))
         host_bench((uint32_t)atoi(a));
     if (str_eq(cmd, "echo"))

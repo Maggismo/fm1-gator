@@ -1,3 +1,6 @@
+> **This fork (Maggismo/fm1-gator)** adds a call/answer generator on the SEQ page, following MIDI clock: see
+> [docs/releases/0.2.md](docs/releases/0.2.md). Installer: https://maggismo.github.io/fm1-gator/
+
 <p align="center">
   <img src="docs/img/gator.jpg" alt="GATOR" width="320">
 </p>

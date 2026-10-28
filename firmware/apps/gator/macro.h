@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * Copyright (C) 2026 npi3pak */
+ * Copyright (C) 2026 npi3pak
+ * Call/answer generator added by Maggismo, 2026 (Maggismo/fm1-gator) */
 #ifndef MACRO_H
 #define MACRO_H
 #include <stdint.h>
@@ -69,6 +70,8 @@ void macro_render(const macro_patch_t *p, const macro_global_t *g, int32_t *lr, 
 void macro_note_on(uint8_t note, uint8_t velocity);
 void macro_note_off(uint8_t note);
 void macro_all_notes_off(void);
+void macro_note_on_isr(uint8_t note, uint8_t velocity);   /* (the audio interrupt only) */
+void macro_note_off_isr(uint8_t note);
 void macro_controller(uint8_t mod_wheel, uint8_t aftertouch, int16_t bend);
 void macro_monitor(macro_monitor_t *m);
 
