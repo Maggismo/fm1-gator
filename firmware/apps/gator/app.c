@@ -227,14 +227,15 @@ static void factory_call_answer(void)            /* P15 CALL and P16 ANSWER: the
     bank.preset[14].morph = 260;
     bank.preset[14].decay = 80;
     bank.preset[14].colour = 450;
-    bank.preset[14].reserved[0] = 24;              /* (its level trim: CALL_POOL's) */
+    bank.preset[14].reserved[0] = 13;             /* (its level trim: CALL_POOL's 2-OP FM) */
     patch_init(&bank.preset[15], 8);             /* P16 ANSWER: darker and fuller, detuned analog */
     bank.preset[15].mode = MODE_TRIG;
     bank.preset[15].harmonics = 700;
     bank.preset[15].timbre = 0;
     bank.preset[15].morph = 0;
-    bank.preset[15].decay = 340;
+    bank.preset[15].decay = 260;
     bank.preset[15].colour = 850;
+    bank.preset[15].reserved[0] = 35;             /* (VIRTUAL ANLG's) */
 }
 
 static void factory_bank(void)
@@ -920,26 +921,22 @@ typedef struct {
     int16_t h0, h1, t0, t1, m0, m1;
     int16_t trim;                                /* its level evened out, in 0.1 dB (measured on the host) */
 } gmodel_t;
+/* (0.7) after the reference (FM1-CALL-ANSWER-Referenz.md): deep, nearly percussive, Plaits' own sounds little bent;
+ * nothing that pads or swells */
 static const gmodel_t CALL_POOL[] = {
-    {10, 200, 800, 200, 650, 0, 450, 24},    /* 2-OP FM */
-    {2, 0, 1000, 200, 600, 200, 700, -53},    /* 6-OP FM I */
-    {3, 0, 1000, 200, 600, 200, 700, -46},    /* 6-OP FM II */
-    {4, 0, 1000, 200, 600, 200, 700, 66},    /* 6-OP FM III */
-    {13, 0, 1000, 150, 850, 150, 850, 80},   /* WAVETABLE */
-    {20, 200, 800, 200, 650, 200, 600, 8},  /* MODAL */
-    {19, 200, 800, 200, 650, 200, 600, 80},  /* STRING */
-    {7, 0, 1000, 0, 700, 0, 600, -82},        /* CHIPTUNE */
-    {1, 100, 700, 100, 600, 100, 700, 7},   /* PHASE DIST */
-    {9, 0, 700, 100, 550, 200, 700, 53},     /* WAVESHAPER */
+    {20, 150, 750, 150, 500, 150, 550, -2},   /* MODAL: struck wood / metal */
+    {19, 150, 750, 150, 500, 150, 550, 120},   /* STRING: plucked */
+    {10, 150, 600, 150, 450, 0, 350, 13},     /* 2-OP FM */
+    {2, 0, 650, 150, 400, 150, 600, -51},     /* 6-OP FM I */
+    {3, 0, 650, 150, 400, 150, 600, -35},     /* 6-OP FM II */
+    {4, 0, 650, 150, 400, 150, 600, 36},     /* 6-OP FM III */
 };
 static const gmodel_t ANS_POOL[] = {
-    {8, 300, 800, 0, 500, 0, 600, 0},       /* VIRTUAL ANLG */
-    {0, 0, 450, 300, 650, 200, 800, -6},     /* VA VCF */
-    {14, 0, 1000, 0, 600, 0, 400, 26},       /* CHORDS */
-    {6, 0, 1000, 0, 450, 200, 700, 77},      /* STRING MACH */
-    {12, 0, 600, 0, 450, 200, 800, -24},      /* HARMONIC */
-    {11, 0, 1000, 0, 500, 200, 800, 0},     /* FORMANT */
-    {5, 0, 1000, 0, 500, 200, 800, -15},      /* WAVE TERRAIN */
+    {21, 200, 700, 200, 550, 150, 500, 0},   /* BASS DRUM, tuned: a deep tom */
+    {20, 150, 650, 100, 400, 200, 550, -6},   /* MODAL, darker */
+    {8, 300, 750, 0, 350, 0, 450, 35},        /* VIRTUAL ANLG, a pluck */
+    {0, 0, 400, 250, 500, 200, 700, 12},      /* VA VCF, a low pluck */
+    {10, 100, 450, 100, 350, 0, 300, -10},     /* 2-OP FM, low ratio */
 };
 #define CALL_N ((int32_t)FW_NELEM(CALL_POOL))
 #define ANS_N ((int32_t)FW_NELEM(ANS_POOL))
@@ -993,11 +990,15 @@ static void gen_roll_sound(uint32_t t)           /* a new sound for the call (0)
     p.harmonics = (int16_t)gen_rr(gen_pool(t)[i].h0, gen_pool(t)[i].h1);
     p.timbre = (int16_t)gen_rr(gen_pool(t)[i].t0, gen_pool(t)[i].t1);
     p.morph = (int16_t)gen_rr(gen_pool(t)[i].m0, gen_pool(t)[i].m1);
-    p.decay = (int16_t)(t ? gen_rr(220, 480) : gen_rr(50, 200));
-    p.colour = (int16_t)(t ? gen_rr(550, 900) : gen_rr(300, 650));
+    p.decay = (int16_t)(t ? gen_rr(120, 320) : gen_rr(60, 200));   /* (nearly percussive) */
+    p.colour = (int16_t)(t ? gen_rr(600, 900) : gen_rr(450, 750));
     p.spread = (int16_t)gen_rr(10, 50);
     p.reserved[0] = gen_pool(t)[i].trim;
     gen_voice_set(t, &p);
+#ifdef FW_HOST
+    if (getenv("GEN_LOG"))
+        printf("snd %u %u %d %d %d %d %d\n", t, p.engine, p.harmonics, p.timbre, p.morph, p.decay, p.colour);
+#endif
 }
 
 static void gen_snapshot(void)                   /* (before any roll: what BACK goes back to) */
@@ -1113,7 +1114,7 @@ static void gen_defaults(gen_t *g)
     g->len = 8;
     g->density = 50;
     g->variation = 25;
-    g->tempo = 124;
+    g->tempo = 140;
     g->call_slot = 14;
     g->ans_slot = 15;
     g->delay = 25;
@@ -1838,6 +1839,8 @@ static void app_init(void)
     if (!bank.gen.cell[0].n)
         gen_new(3);
     gen_voices_check();
+    if (bank.gen.tempo == 124)                   /* (0.7: the old default, 140 now) */
+        bank.gen.tempo = 140;
     gen_has_prev = 0;
     page = PAGE_GEN;                             /* (0.5) it starts on the generator's page, as saved */
     gen_ptrs();

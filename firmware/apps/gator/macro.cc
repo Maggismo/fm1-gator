@@ -403,12 +403,12 @@ static void macro_fx_clear(void) {                /* (the pool is not cleared at
 
 extern "C" void macro_fx(int32_t* lr, uint32_t frames, int32_t echo_len, int32_t echo_amt, int32_t verb_amt) {
     /* (0.5) sends: turned down, the echoes and the plate ring out instead of stopping; then the safety net on the
-     * whole output: a high-pass at ~35 Hz (no rumble), a low-pass at ~8 kHz (nothing piercing), a soft limiter */
+     * whole output: a high-pass at ~35 Hz (no rumble), a low-pass at ~12 kHz (nothing piercing), a soft limiter */
     const float e_send = clampf(static_cast<float>(echo_amt) * 0.01f, 0.0f, 1.0f);
     const float e_fb = 0.38f + 0.22f * e_send;
     const float v_send = clampf(static_cast<float>(verb_amt) * 0.01f, 0.0f, 1.0f);
     const int len = echo_len < 64 ? 64 : echo_len > kEchoMax - 1 ? kEchoMax - 1 : static_cast<int>(echo_len);
-    const float kHp = 1.0f - 6.2832f * 35.0f / 48077.0f, kLp = 1.0f - expf(-6.2832f * 8000.0f / 48077.0f);
+    const float kHp = 1.0f - 6.2832f * 35.0f / 48077.0f, kLp = 1.0f - expf(-6.2832f * 12000.0f / 48077.0f);   /* (0.7: only past the useful) */
     static float hp_x[2], hp_y[2], lp_y[2];
     for (uint32_t i = 0; i < frames; i++) {
         const float l = static_cast<float>(lr[2 * i]), r = static_cast<float>(lr[2 * i + 1]);
