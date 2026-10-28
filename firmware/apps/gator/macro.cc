@@ -3,6 +3,7 @@
 #include <new>
 #include <algorithm>
 #include <math.h>
+#include <string.h>
 
 #include "plaits/dsp/voice.h"
 #include "stmlib/utils/buffer_allocator.h"
@@ -320,12 +321,14 @@ void post(uint32_t ev) {
 
 }
 
+static void macro_fx_clear(void);
 extern "C" void macro_init(void) {
     stmlib::BufferAllocator allocator(shared_buffer, kSharedSize);
     voice = new (voice_storage) Voice();
     voice->Init(&allocator);
     Random::Seed(0x21436587u);
     block_pos = plaits::kBlockSize;
+    macro_fx_clear();
 }
 
 extern "C" void macro_render(const macro_patch_t* p, const macro_global_t* g, int32_t* lr, uint32_t frames) {
@@ -371,3 +374,84 @@ extern "C" void macro_controller(uint8_t mod_wheel, uint8_t aftertouch, int16_t 
 }
 
 extern "C" void macro_monitor(macro_monitor_t* m) { *m = monitor; }
+
+/* ------------------------------------------------ the generator's effects ---
+ * A dark echo on the tempo and a small dark plate, after the voice, on the whole output (the call/answer page's
+ * DELAY and REVERB). The echo: mono, its repeats lower-passed in the loop; the plate: four combs a side, damped,
+ * then two allpasses (Schroeder / Freeverb, sized for 48 kHz) */
+namespace {
+const int kEchoMax = 46000;                      /* samples: up to ~0.95 s (a dotted eighth down to ~47 BPM) */
+int16_t echo_buf[kEchoMax] MACRO_POOL;
+int echo_w;
+float echo_lp;
+const int kCombL[4] = {1214, 1293, 1390, 1476}, kAllp[2] = {605, 480}, kSpread = 25;
+float comb_buf[2][4][1476 + kSpread + 1] MACRO_POOL;
+float allp_buf[2][2][605 + kSpread + 1] MACRO_POOL;
+int comb_i[2][4], allp_i[2][2];
+float comb_lp[2][4];
+float fx_in_lp;
+}
+
+static void macro_fx_clear(void) {                /* (the pool is not cleared at start) */
+    memset(echo_buf, 0, sizeof echo_buf);
+    memset(comb_buf, 0, sizeof comb_buf);
+    memset(allp_buf, 0, sizeof allp_buf);
+}
+
+extern "C" void macro_fx(int32_t* lr, uint32_t frames, int32_t echo_len, int32_t echo_amt, int32_t verb_amt) {
+    const float e_mix = clampf(static_cast<float>(echo_amt) * 0.01f, 0.0f, 1.0f) * 0.55f;
+    const float e_fb = 0.38f + 0.22f * clampf(static_cast<float>(echo_amt) * 0.01f, 0.0f, 1.0f);
+    const float v_mix = clampf(static_cast<float>(verb_amt) * 0.01f, 0.0f, 1.0f) * 0.55f;
+    const int len = echo_len < 64 ? 64 : echo_len > kEchoMax - 1 ? kEchoMax - 1 : static_cast<int>(echo_len);
+    if (e_mix <= 0.0f && v_mix <= 0.0f && echo_lp == 0.0f)
+        return;
+    for (uint32_t i = 0; i < frames; i++) {
+        const float l = static_cast<float>(lr[2 * i]), r = static_cast<float>(lr[2 * i + 1]);
+        const float in = (l + r) * 0.5f;
+        /* echo */
+        int rd = echo_w - len;
+        if (rd < 0)
+            rd += kEchoMax;
+        const float d = static_cast<float>(echo_buf[rd]);
+        echo_lp += (d - echo_lp) * 0.32f;        /* (each repeat darker) */
+        const float wr = in * (e_mix > 0.0f ? 1.0f : 0.0f) + echo_lp * e_fb;
+        echo_buf[echo_w] = static_cast<int16_t>(wr > 32767.0f ? 32767.0f : wr < -32768.0f ? -32768.0f : wr);
+        if (++echo_w >= kEchoMax)
+            echo_w = 0;
+        float ol = l + d * e_mix, orr = r + d * e_mix;
+        /* plate */
+        if (v_mix > 0.0f) {
+            fx_in_lp += (in - fx_in_lp) * 0.45f;
+            const float vin = fx_in_lp * 0.015f;
+            for (int c = 0; c < 2; c++) {
+                float acc = 0.0f;
+                for (int k = 0; k < 4; k++) {
+                    const int n = kCombL[k] + c * kSpread;
+                    float* b = comb_buf[c][k];
+                    const float o = b[comb_i[c][k]];
+                    comb_lp[c][k] = o * 0.6f + comb_lp[c][k] * 0.4f;
+                    b[comb_i[c][k]] = vin + comb_lp[c][k] * 0.82f;
+                    if (++comb_i[c][k] >= n)
+                        comb_i[c][k] = 0;
+                    acc += o;
+                }
+                for (int k = 0; k < 2; k++) {
+                    const int n = kAllp[k] + c * kSpread;
+                    float* b = allp_buf[c][k];
+                    const float o = b[allp_i[c][k]];
+                    b[allp_i[c][k]] = acc + o * 0.5f;
+                    acc = o - acc;
+                    if (++allp_i[c][k] >= n)
+                        allp_i[c][k] = 0;
+                }
+                const float w = acc * v_mix * 11.0f;
+                if (c == 0)
+                    ol += w;
+                else
+                    orr += w;
+            }
+        }
+        lr[2 * i] = static_cast<int32_t>(ol);
+        lr[2 * i + 1] = static_cast<int32_t>(orr);
+    }
+}

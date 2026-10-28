@@ -72,6 +72,7 @@ void macro_note_off(uint8_t note);
 void macro_all_notes_off(void);
 void macro_note_on_isr(uint8_t note, uint8_t velocity);   /* (the audio interrupt only) */
 void macro_note_off_isr(uint8_t note);
+void macro_fx(int32_t *lr, uint32_t frames, int32_t echo_len, int32_t echo_amt, int32_t verb_amt);   /* (0..100) */
 void macro_controller(uint8_t mod_wheel, uint8_t aftertouch, int16_t bend);
 void macro_monitor(macro_monitor_t *m);
 
