@@ -77,6 +77,15 @@ void macro_fx(int32_t *lr, uint32_t frames, int32_t echo_len, int32_t echo_amt, 
 void macro_controller(uint8_t mod_wheel, uint8_t aftertouch, int16_t bend);
 void macro_monitor(macro_monitor_t *m);
 
+/* (0.9) the answer's voice: the same, apart */
+void macro_b_init(void);
+void macro_b_render(const macro_patch_t *p, const macro_global_t *g, int32_t *lr, uint32_t frames);
+void macro_b_note_on_isr(uint8_t note, uint8_t velocity);
+void macro_b_note_off_isr(uint8_t note);
+void macro_b_all_notes_off_isr(void);
+void macro_b_all_notes_off(void);
+void macro_b_controller(uint8_t mod_wheel, uint8_t aftertouch, int16_t bend);
+
 #ifdef __cplusplus
 }
 #endif

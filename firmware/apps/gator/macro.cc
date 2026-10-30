@@ -10,6 +10,12 @@
 #include "stmlib/utils/random.h"
 #include "macro.h"
 
+/* (0.9) two voices, the call's and the answer's: this file once more as macro_b.cc, its state its own (MACRO_FN names
+ * its functions macro_b_*; the effects only here) */
+#ifndef MACRO_FN
+#define MACRO_FN(x) macro_##x
+#endif
+
 #ifdef FW_HOST
 #define MACRO_POOL
 #else
@@ -321,17 +327,21 @@ void post(uint32_t ev) {
 
 }
 
+#ifndef MACRO_VOICE_B
 static void macro_fx_clear(void);
-extern "C" void macro_init(void) {
+#endif
+extern "C" void MACRO_FN(init)(void) {
     stmlib::BufferAllocator allocator(shared_buffer, kSharedSize);
     voice = new (voice_storage) Voice();
     voice->Init(&allocator);
     Random::Seed(0x21436587u);
     block_pos = plaits::kBlockSize;
+#ifndef MACRO_VOICE_B
     macro_fx_clear();
+#endif
 }
 
-extern "C" void macro_render(const macro_patch_t* p, const macro_global_t* g, int32_t* lr, uint32_t frames) {
+extern "C" void MACRO_FN(render)(const macro_patch_t* p, const macro_global_t* g, int32_t* lr, uint32_t frames) {
     const float blend = clampf(static_cast<float>(p->blend) * 0.01f, 0.0f, 1.0f);
     const float spread = clampf(static_cast<float>(p->spread) * 0.01f, 0.0f, 1.0f);
     const float trim = p->reserved[0] ? powf(10.0f, clampf(static_cast<float>(p->reserved[0]), -120.0f, 120.0f) * 0.005f) : 1.0f;
@@ -351,33 +361,34 @@ extern "C" void macro_render(const macro_patch_t* p, const macro_global_t* g, in
     }
 }
 
-extern "C" void macro_note_on(uint8_t note, uint8_t velocity) {
+extern "C" void MACRO_FN(note_on)(uint8_t note, uint8_t velocity) {
     post(EV_ON | static_cast<uint32_t>(note & 127u) << 8 | static_cast<uint32_t>(velocity & 127u) << 16);
 }
 
-extern "C" void macro_note_off(uint8_t note) { post(EV_OFF | static_cast<uint32_t>(note & 127u) << 8); }
+extern "C" void MACRO_FN(note_off)(uint8_t note) { post(EV_OFF | static_cast<uint32_t>(note & 127u) << 8); }
 
-extern "C" void macro_all_notes_off(void) { post(EV_ALL_OFF); }
+extern "C" void MACRO_FN(all_notes_off)(void) { post(EV_ALL_OFF); }
 
 /* from the audio interrupt only (the generator): a queue of its own, read in the same interrupt */
 static void post_isr(uint32_t ev) {
     if (isr_w - isr_r < kEvents)
         isr_events[isr_w++ % kEvents] = ev;
 }
-extern "C" void macro_note_on_isr(uint8_t note, uint8_t velocity) {
+extern "C" void MACRO_FN(note_on_isr)(uint8_t note, uint8_t velocity) {
     post_isr(EV_ON | static_cast<uint32_t>(note & 127u) << 8 | static_cast<uint32_t>(velocity & 127u) << 16);
 }
-extern "C" void macro_note_off_isr(uint8_t note) { post_isr(EV_OFF | static_cast<uint32_t>(note & 127u) << 8); }
-extern "C" void macro_all_notes_off_isr(void) { post_isr(EV_ALL_OFF); }
+extern "C" void MACRO_FN(note_off_isr)(uint8_t note) { post_isr(EV_OFF | static_cast<uint32_t>(note & 127u) << 8); }
+extern "C" void MACRO_FN(all_notes_off_isr)(void) { post_isr(EV_ALL_OFF); }
 
-extern "C" void macro_controller(uint8_t mod_wheel, uint8_t aftertouch, int16_t bend) {
+extern "C" void MACRO_FN(controller)(uint8_t mod_wheel, uint8_t aftertouch, int16_t bend) {
     ctl_mod_wheel = mod_wheel;
     ctl_aftertouch = aftertouch;
     ctl_bend = bend;
 }
 
-extern "C" void macro_monitor(macro_monitor_t* m) { *m = monitor; }
+extern "C" void MACRO_FN(monitor)(macro_monitor_t* m) { *m = monitor; }
 
+#ifndef MACRO_VOICE_B
 /* ------------------------------------------------ the generator's effects ---
  * A dark echo on the tempo and a small dark plate, after the voice, on the whole output (the call/answer page's
  * DELAY and REVERB). The echo: mono, its repeats lower-passed in the loop; the plate: four combs a side, damped,
@@ -393,6 +404,7 @@ float allp_buf[2][2][605 + kSpread + 1] MACRO_POOL;
 int comb_i[2][4], allp_i[2][2];
 float comb_lp[2][4];
 float fx_in_lp;
+float echo_len_s = 20000.0f;
 }
 
 static void macro_fx_clear(void) {                /* (the pool is not cleared at start) */
@@ -401,7 +413,7 @@ static void macro_fx_clear(void) {                /* (the pool is not cleared at
     memset(allp_buf, 0, sizeof allp_buf);
 }
 
-extern "C" void macro_fx(int32_t* lr, uint32_t frames, int32_t echo_len, int32_t echo_amt, int32_t verb_amt) {
+extern "C" void MACRO_FN(fx)(int32_t* lr, uint32_t frames, int32_t echo_len, int32_t echo_amt, int32_t verb_amt) {
     /* (0.5) sends: turned down, the echoes and the plate ring out instead of stopping; then the safety net on the
      * whole output: a high-pass at ~35 Hz (no rumble), a low-pass at ~12 kHz (nothing piercing), a soft limiter */
     const float e_send = clampf(static_cast<float>(echo_amt) * 0.01f, 0.0f, 1.0f);
@@ -413,10 +425,14 @@ extern "C" void macro_fx(int32_t* lr, uint32_t frames, int32_t echo_len, int32_t
     for (uint32_t i = 0; i < frames; i++) {
         const float l = static_cast<float>(lr[2 * i]), r = static_cast<float>(lr[2 * i + 1]);
         const float in = (l + r) * 0.5f;
-        int rd = echo_w - len;
-        if (rd < 0)
-            rd += kEchoMax;
-        const float d = static_cast<float>(echo_buf[rd]);
+        echo_len_s += (static_cast<float>(len) - echo_len_s) * 0.00005f;   /* (0.9: the time glides, never jumps:
+                                                                           * its jumps were the noise) */
+        float rp = static_cast<float>(echo_w) - echo_len_s;
+        if (rp < 0.0f)
+            rp += static_cast<float>(kEchoMax);
+        const int r0 = static_cast<int>(rp), r1 = r0 + 1 >= kEchoMax ? 0 : r0 + 1;
+        const float fr = rp - static_cast<float>(r0);
+        const float d = static_cast<float>(echo_buf[r0]) * (1.0f - fr) + static_cast<float>(echo_buf[r1]) * fr;
         echo_lp += (d - echo_lp) * 0.32f;        /* (each repeat darker) */
         const float wr = in * e_send + echo_lp * e_fb;
         echo_buf[echo_w] = static_cast<int16_t>(wr > 32767.0f ? 32767.0f : wr < -32768.0f ? -32768.0f : wr);
@@ -461,3 +477,4 @@ extern "C" void macro_fx(int32_t* lr, uint32_t frames, int32_t echo_len, int32_t
         }
     }
 }
+#endif

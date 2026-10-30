@@ -47,7 +47,8 @@ typedef struct {
 #define GEN_PPS 6u                               /* clock pulses a sixteenth (24 a beat) */
 enum { G_NONE, G_CALL, G_ANS };
 enum { SC_MINOR, SC_DORIAN, SC_PHRYG, SC_PENTA, SCALES };
-static const char *const SCALE_NAME[SCALES] = {"MIN", "DOR", "PHR", "PENT"};
+static const char *const SCALE_NAME[SCALES] = {"MINIMAL", "METAL", "PHRYG", "MINOR"};   /* (0.9: the keys' modes) */
+static const uint8_t MODE_ROW[SCALES] = {SC_PHRYG, SC_PHRYG, SC_PHRYG, SC_MINOR};   /* (the melodic ones' scale) */
 static const int8_t SCALE[SCALES][7] = {{0, 2, 3, 5, 7, 8, 10}, {0, 2, 3, 5, 7, 9, 10}, {0, 1, 3, 5, 7, 8, 10},
                                         {0, 3, 5, 7, 10, 0, 0}};
 static const uint8_t SCALE_N[SCALES] = {7, 7, 7, 5};
@@ -623,11 +624,11 @@ static void draw_enc_line(void)
         str_cpy(b + str_len(b), " N", sizeof b - str_len(b));
         fmt_signed(b + str_len(b), bank.gen.reserved[2]);
     }
-    if (page == PAGE_GSND) {                     /* the two models, on SELECT and ALGO */
-        str_cpy(b, "C:", sizeof b);
-        str_cpy(b + 2, MODEL_NAME[bank.preset[14].engine % MACRO_ENGINES], sizeof b - 2);
-        str_cpy(b + str_len(b), " A:", sizeof b - str_len(b));
-        str_cpy(b + str_len(b), MODEL_NAME[bank.preset[15].engine % MACRO_ENGINES], sizeof b - str_len(b));
+    if (page == PAGE_GSND) {                     /* (0.9) the delay and the room, on SELECT and ALGO; the tempo */
+        str_cpy(b, "DELAY ", sizeof b);
+        fmt_int(b + str_len(b), bank.gen.delay);
+        str_cpy(b + str_len(b), "  ROOM ", sizeof b - str_len(b));
+        fmt_int(b + str_len(b), bank.gen.reverb);
     }
     for (i = 0; page != PAGE_MAIN && page != PAGE_MATRIX && page != PAGE_SAVE && !GENP(page) && i < 2u; i++) {
         if (!pg->enc[i].label)
@@ -875,9 +876,10 @@ static int32_t gen_pick(const uint8_t *w, uint32_t n)   /* an index, by weight *
 }
 static int32_t gen_semis(int32_t deg)            /* a degree of the scale, in semitones (below the root: negative) */
 {
-    const int32_t n = SCALE_N[bank.gen.scale % SCALES];
+    const uint32_t row = MODE_ROW[bank.gen.scale % SCALES];
+    const int32_t n = SCALE_N[row];
     const int32_t o = deg >= 0 ? deg / n : -((n - 1 - deg) / n), d = deg - o * n;
-    return SCALE[bank.gen.scale % SCALES][d] + 12 * o;
+    return SCALE[row][d] + 12 * o;
 }
 static int32_t gen_note(int32_t base, int32_t deg)   /* (0.5) folded into A1 .. C6: nothing shrill, nothing rumbling */
 {
@@ -936,7 +938,7 @@ static const gmodel_t CALL_POOL[] = {
     {10, 150, 600, 150, 450, 0, 350, 13},     /* 2-OP FM */
     {2, 0, 650, 150, 400, 150, 600, -51},     /* 6-OP FM I */
     {3, 0, 650, 150, 400, 150, 600, -35},     /* 6-OP FM II */
-    {4, 0, 650, 150, 400, 150, 600, 36},     /* 6-OP FM III */
+    {4, 0, 650, 150, 400, 150, 600, -20},     /* 6-OP FM III */
 };
 static const gmodel_t ANS_POOL[] = {
     {21, 200, 700, 200, 550, 150, 500, 0},   /* BASS DRUM, tuned: a deep tom */
@@ -1059,26 +1061,52 @@ static uint32_t gen_hash(uint32_t a)
     return a;
 }
 
-/* the pairs as the steps they play: the call open (a fifth, a seventh, a ninth, a fourth), the answer on the next step
- * resolved (the root, the third, the fifth, the seventh below), from the notes' seed; Variation now and then another
- * answer, this round only */
+/* (0.9) the pairs as the steps they play. MINIMAL: every call on one note, every answer on one other, an octave under
+ * it and rubbing (the octave, a semitone more or less, a tritone more); METAL: the same, each pair its own semitone or
+ * two aside; PHRYG / MINOR: the melodic way (the call open, the answer resolved). Variation: now and then, this round
+ * only, a note a semitone aside */
 static void gen_render(gstep_t *s, int vary)
 {
     static const int8_t CDEG[4] = {4, 6, 8, 3}, ADEG[4] = {0, 2, 4, -1};
     static const uint8_t CW[8] = {0, 0, 0, 0, 1, 1, 2, 3}, AW[8] = {0, 0, 0, 0, 1, 1, 2, 3};
+    static const int8_t CALL_ST[8] = {0, 0, 0, 1, 1, 3, 6, 10};          /* (the call: the root, the minor second ...) */
+    static const int8_t DROP[6] = {12, 12, 13, 11, 18, 13};               /* (the answer: under the call by) */
+    static const int8_t METAL[6] = {0, 1, -1, 2, 1, -2};
     const uint16_t pairs = gen_pairs();
+    const uint32_t seed = (uint32_t)(uint16_t)bank.gen.reserved[1], mode = (uint32_t)bank.gen.scale % SCALES;
+    const uint32_t hs = gen_hash(seed * 977u + 7u);
+    const int32_t c0 = CALL_ST[hs & 7u], drop = DROP[(hs >> 8) % 6u];
     uint32_t st;
     memset(s, 0, sizeof(gstep_t) * GEN_STEPS);
     for (st = 0; st < 16u; st++) {
-        uint32_t h, a;
+        const uint32_t h = gen_hash(seed * 131u + st);
+        int32_t cn, an;
         if (!(pairs >> st & 1u))
             continue;
-        h = gen_hash((uint32_t)(uint16_t)bank.gen.reserved[1] * 131u + st);
-        a = AW[h >> 8 & 7u];
-        if (vary && (int32_t)gen_r(100) < bank.gen.variation)
-            a = (a + 1u + gen_r(3)) & 3u;
-        s[st] = (gstep_t){G_CALL, (uint8_t)gen_note(GEN_CALL_BASE, CDEG[CW[h & 7u]]), (uint8_t)(100 + (h >> 16) % 16u), 2};
-        s[(st + 1u) & 15u] = (gstep_t){G_ANS, (uint8_t)gen_note(GEN_ANS_BASE, ADEG[a]), (uint8_t)(106 + (h >> 20) % 16u), 4};
+        if (mode <= 1u) {
+            const int32_t base = GEN_CALL_BASE + bank.gen.root + 12 * bank.gen.reg;
+            const int32_t m = mode ? METAL[h % 6u] : 0;
+            cn = base + c0 + m;
+            an = cn - drop + (mode ? METAL[(h >> 8) % 6u] : 0);
+            if (vary && (int32_t)gen_r(100) < bank.gen.variation)
+                an += gen_r(2) ? 1 : -1;
+            while (cn > 84)
+                cn -= 12;
+            while (an > 72)
+                an -= 12;
+            while (an < 33)
+                an += 12;
+            while (cn < 36)
+                cn += 12;
+        } else {
+            uint32_t a = AW[h >> 8 & 7u];
+            if (vary && (int32_t)gen_r(100) < bank.gen.variation)
+                a = (a + 1u + gen_r(3)) & 3u;
+            cn = gen_note(GEN_CALL_BASE, CDEG[CW[h & 7u]]);
+            an = gen_note(GEN_ANS_BASE, ADEG[a]);
+        }
+        s[st] = (gstep_t){G_CALL, (uint8_t)cn, (uint8_t)(100 + (h >> 16) % 16u), 2};
+        s[(st + 1u) & 15u] = (gstep_t){G_ANS, (uint8_t)an, (uint8_t)(106 + (h >> 20) % 16u), 4};
     }
 }
 
@@ -1102,7 +1130,7 @@ static void gen_handover(int vary)               /* the next round's steps (the 
 static void gen_defaults(gen_t *g)
 {
     memset(g, 0, sizeof *g);
-    g->scale = SC_MINOR;
+    g->scale = 0;                                /* (0.9: MINIMAL) */
     g->len = 8;
     g->density = 50;
     g->variation = 25;
@@ -1111,20 +1139,21 @@ static void gen_defaults(gen_t *g)
     g->ans_slot = 15;
     g->reserved[0] = (int16_t)(1u << 2 | 1u << 10);   /* (0.8) two pairs to begin with */
     g->reserved[1] = 1;
+    g->delay = 20;
+    g->reverb = 15;
 }
 static void gen_sanitize(gen_t *g)
 {
     uint32_t k, i;
     clamp16(&g->root, 0, 11);
     clamp16(&g->scale, 0, SCALES - 1);
-    g->len = g->len == 16 ? 16 : 8;
     clamp16(&g->density, 0, 100);
     clamp16(&g->variation, 0, 100);
     clamp16(&g->reg, -2, 2);
     clamp16(&g->tone, -50, 50);
     clamp16(&g->length, -50, 50);
-    g->delay = 0;                                /* (0.8: no delay or reverb of its own: the Digitakt's) */
-    g->reverb = 0;
+    clamp16(&g->delay, 0, 100);                  /* (0.9: back, without the noise) */
+    clamp16(&g->reverb, 0, 100);
     clamp16(&g->reserved[2], -30, 30);           /* (the nudge, in ms) */
     if (!g->reserved[1])
         g->reserved[1] = 1;
@@ -1251,7 +1280,8 @@ static void gen_run(int on)
 }
 
 /* ------------------------------------------- the generator: the audio interrupt's side --- */
-static uint32_t gi_pulses, gi_acc, gi_gate, gi_note, gi_sounding, gi_frame, gi_t[64];   /* (gi_frame: where in the stream, for the host's log) */
+static uint32_t gi_pulses, gi_acc, gi_frame, gi_t[64];
+static uint32_t gi_gate[2], gi_note[2], gi_sounding[2];   /* (0.9) each voice its own: the call's (0), the answer's (1) */   /* (gi_frame: where in the stream, for the host's log) */
 
 #define GEN_LEAD 288                             /* samples (6 ms): a clock pulse is seen half a frame late, on average */
 static uint32_t gen_spp_eff(void)                /* a pulse's length; on the clock, a touch faster or slower to keep up:
@@ -1278,18 +1308,24 @@ static uint32_t gen_spp_eff(void)                /* a pulse's length; on the clo
     return spp < 256 * 100 ? 256u * 100u : (uint32_t)spp;
 }
 
-static void gen_note_end(void)
+static void gen_note_end(uint32_t v)
 {
-    if (gi_sounding)
-        macro_note_off_isr((uint8_t)gi_note);
-    gi_sounding = 0;
+    if (gi_sounding[v]) {
+        if (v)
+            macro_b_note_off_isr((uint8_t)gi_note[v]);
+        else
+            macro_note_off_isr((uint8_t)gi_note[v]);
+    }
+    gi_sounding[v] = 0;
 }
 
 static void gen_pulse(void)
 {
+    uint32_t v;
     gi_t[gi_pulses % 64u] = gi_frame;
-    if (gi_gate && --gi_gate == 0u)
-        gen_note_end();
+    for (v = 0; v < 2u; v++)
+        if (gi_gate[v] && --gi_gate[v] == 0u)
+            gen_note_end(v);
     if (gi_pulses % GEN_PPS == 0u) {
         const uint32_t len = gen_len_isr, step = gi_pulses / GEN_PPS % len;
         if (step == 0u) {
@@ -1303,17 +1339,21 @@ static void gen_pulse(void)
         }
         gen_step_now = (uint8_t)step;
         if (gen_live[step].type != G_NONE && !gen_mute) {
+            const uint32_t w = gen_live[step].type == G_ANS;
             gen_trigs++;
-            gen_note_end();
+            gen_note_end(w);
             gen_type_now = gen_live[step].type;
-            gi_note = gen_live[step].note;
-            macro_note_on_isr((uint8_t)gi_note, gen_live[step].vel);
+            gi_note[w] = gen_live[step].note;
+            if (w)
+                macro_b_note_on_isr((uint8_t)gi_note[w], gen_live[step].vel);
+            else
+                macro_note_on_isr((uint8_t)gi_note[w], gen_live[step].vel);
 #ifdef FW_HOST
             if (getenv("GEN_LOG"))
                 printf("non %u %u %u\n", gi_frame, step, gen_type_now);
 #endif
-            gi_sounding = 1;
-            gi_gate = (uint32_t)clampi((int32_t)gen_live[step].gate + gen_gate_add, 1, 23);
+            gi_sounding[w] = 1;
+            gi_gate[w] = (uint32_t)clampi((int32_t)gen_live[step].gate + gen_gate_add, 1, 23);
         }
     }
     gi_pulses++;
@@ -1324,8 +1364,10 @@ static void gen_isr_begin(void)
     if (gen_stop_req) {
         gen_stop_req = 0;
         gen_on = 0;
-        gen_note_end();
+        gen_note_end(0);
+        gen_note_end(1);
         macro_all_notes_off_isr();               /* (0.5: nothing left sounding) */
+        macro_b_all_notes_off_isr();
         gen_type_now = G_NONE;
     }
     if (gen_start_req) {
@@ -1335,8 +1377,9 @@ static void gen_isr_begin(void)
         }
         gen_start_req = 0;
         gi_acc = 0;
-        gi_sounding = 0;
+        gi_sounding[0] = gi_sounding[1] = 0;
         macro_all_notes_off_isr();
+        macro_b_all_notes_off_isr();
         gen_on = 1;
         gen_pulse();
     }
@@ -1442,7 +1485,7 @@ static void gen_knobs(const fw_input_t *in)      /* every knob its one thing, on
     gen_t *g = &bank.gen;
     int changed = 0;
     uint32_t t;
-    for (t = 0; t < 2u; t++) {                   /* both pages: SELECT the call's model, ALGO the answer's (all 24) */
+    for (t = 0; t < 2u && page == PAGE_GEN; t++) {   /* play page: SELECT the call's model, ALGO the answer's (all 24) */
         const int32_t d = in->knob[t ? FW_KNOB_ALGO : FW_KNOB_SELECT];
         if (d) {
             gen_voice_engine(t, d);
@@ -1471,6 +1514,8 @@ static void gen_knobs(const fw_input_t *in)      /* every knob its one thing, on
             }
         }
         changed |= adjust(&g->tempo, in->knob[FW_KNOB_PRESET], 1, 60, 190);
+        changed |= adjust(&g->delay, in->knob[FW_KNOB_SELECT], 5, 0, 100);   /* (0.9) SELECT the delay, ALGO the room */
+        changed |= adjust(&g->reverb, in->knob[FW_KNOB_ALGO], 5, 0, 100);
     }
     if (changed)
         dirty |= FW_BIT(D_HEADER) | 0x1Eu | FW_BIT(D_ENC);
@@ -1790,6 +1835,13 @@ static void app_init(void)
     global = bank.global;
     preset_select(bank.current);
     macro_init();
+    macro_b_init();
+    if (bank.gen.len != 9) {                     /* (0.9, once: MINIMAL, the delay and the room back) */
+        bank.gen.len = 9;
+        bank.gen.scale = 0;
+        bank.gen.delay = 20;
+        bank.gen.reverb = 15;
+    }
     if (!bank.gen.reserved[0] && bank.gen.reserved[1] <= 1) {   /* (0.8: a bank from before, no pairs: two to begin) */
         bank.gen.reserved[0] = (int16_t)(1u << 2 | 1u << 10);
         bank.gen.reserved[1] = 1;
@@ -1869,12 +1921,17 @@ static void app_audio(int32_t *lr, uint32_t frames)
             const uint32_t u = gen_until();
             n = u < n ? u : n;
         }
-        if (over)
+        if (over) {
             memset(lr + 2u * done, 0, n * 2u * sizeof *lr);
-        else
-            macro_render(gen_on && gen_type_now ? gen_patch_p[gen_type_now]
-                         : gen_page_on      ? gen_patch_p[gen_type_now ? gen_type_now : G_CALL]   /* (never a drone) */
-                                            : &patch, &global, lr + 2u * done, n);
+        } else {                                 /* (0.9) the call's voice (or, off the generator's pages and at rest,
+                                                  * the keys' preset), and the answer's, added */
+            static int32_t b[2u * FW_BLOCK];
+            uint32_t k;
+            macro_render(gen_on || gen_page_on ? gen_patch_p[G_CALL] : &patch, &global, lr + 2u * done, n);
+            macro_b_render(gen_patch_p[G_ANS], &global, b, n);
+            for (k = 0; k < 2u * n; k++)
+                lr[2u * done + k] += b[k];
+        }
         done += n;
         gi_frame = seq_samples + done;
         if (gen_on)
