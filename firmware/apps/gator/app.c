@@ -64,6 +64,7 @@ static const uint8_t SCALE_KEY[SCALES] = {15, 17, 20, 22};   /* G#4 A#4 C#5 D#5 
 #define GK_SNDA 5u
 #define GK_NOTES 8u
 #define GK_BACK 10u
+#define GK_HALF 13u                              /* (1.0) F#4: 16 steps or 8 */
 
 typedef struct {                                 /* a call and its answer, in a cell */
     int8_t pos, cdeg, off, adeg, dbl, ddeg;      /* (dbl: 0 none, or the second answer's distance) */
@@ -994,12 +995,36 @@ static void gen_voice_engine(uint32_t t, int32_t d)   /* (0.8) by hand: any of t
 
 static void gen_roll_sound(uint32_t t)           /* a new sound for the call (0) or the answer (1) */
 {
-    const int32_t cur = gen_model_of(t, bank.preset[14u + t].engine);
-    int32_t i, tries = 0;
+    /* (1.0) a real roll: the moment of the key in it; and a bag: each family of models once before any comes again (the
+     * three 6-OP FMs one family), never the voice's own last, never the other voice's */
+    static uint32_t bag[2];
+    const int32_t n = gen_pool_n(t), cur = gen_model_of(t, bank.preset[14u + t].engine);
+    int32_t i, k, fam[8], nf = 0, pick, tries = 0;
     macro_patch_t p;
-    do
-        i = (int32_t)gen_r((uint32_t)gen_pool_n(t));
-    while ((i == cur || gen_pool(t)[i].engine == bank.preset[15u - t].engine) && tries++ < 12);   /* (never the other's) */
+    gen_rng ^= (fm1_ms * 2654435761u) ^ (seq_samples * 40503u) ^ (uint32_t)fw_stats.audio_max_us;
+    for (k = 0; k < 4; k++)
+        gen_r(0);
+    for (k = 0; k < n; k++)                      /* (the families: a model's first index; the 6-OPs are 2, 3, 4) */
+        if (!(gen_pool(t)[k].engine >= 2 && gen_pool(t)[k].engine <= 4 && k > 0 && gen_pool(t)[k - 1].engine >= 2 &&
+              gen_pool(t)[k - 1].engine <= 4))
+            fam[nf++] = k;
+    do {
+        uint32_t left = 0;
+        int32_t f;
+        if (!(bag[t] & ((1u << nf) - 1u)))
+            bag[t] = (1u << nf) - 1u;            /* (the bag empty: filled again) */
+        for (f = 0; f < nf; f++)
+            if (bag[t] >> f & 1u)
+                left++;
+        pick = (int32_t)gen_r(left);
+        for (f = 0; f < nf; f++)
+            if ((bag[t] >> f & 1u) && pick-- == 0)
+                break;
+        bag[t] &= ~(1u << f);
+        i = fam[f];
+        if (gen_pool(t)[i].engine >= 2 && gen_pool(t)[i].engine <= 4)
+            i += (int32_t)gen_r(3);              /* (which of the 6-OPs) */
+    } while ((i == cur || gen_pool(t)[i].engine == bank.preset[15u - t].engine) && tries++ < 12);
     patch_init(&p, gen_pool(t)[i].engine);
     p.mode = MODE_TRIG;
     p.harmonics = (int16_t)gen_rr(gen_pool(t)[i].h0, gen_pool(t)[i].h1);
@@ -1007,7 +1032,7 @@ static void gen_roll_sound(uint32_t t)           /* a new sound for the call (0)
     p.morph = (int16_t)gen_rr(gen_pool(t)[i].m0, gen_pool(t)[i].m1);
     p.decay = (int16_t)(t ? gen_rr(120, 320) : gen_rr(60, 200));   /* (nearly percussive) */
     p.colour = (int16_t)(t ? gen_rr(600, 900) : gen_rr(450, 750));
-    p.spread = (int16_t)gen_rr(10, 50);
+    p.spread = 0;                                /* (1.0: the voices in the middle; only the room is wide) */
     p.reserved[0] = gen_pool(t)[i].trim;
     gen_voice_set(t, &p);
 #ifdef FW_HOST
@@ -1044,6 +1069,7 @@ static void gen_voices_check(void)               /* (at start) both voices on on
         gen_roll_sound(1);
 }
 
+static uint32_t gen_len(void) { return bank.gen.density == 8 ? 8u : 16u; }   /* (1.0) 16 steps, or 8 (density: 8) */
 static uint16_t gen_pairs(void) { return (uint16_t)bank.gen.reserved[0]; }   /* (0.8) the pairs: a bit a call's step */
 static void gen_pairs_set(uint16_t m) { bank.gen.reserved[0] = (int16_t)m; }
 
@@ -1077,8 +1103,9 @@ static void gen_render(gstep_t *s, int vary)
     const uint32_t hs = gen_hash(seed * 977u + 7u);
     const int32_t c0 = CALL_ST[hs & 7u], drop = DROP[(hs >> 8) % 6u];
     uint32_t st;
+    const uint32_t len = gen_len();
     memset(s, 0, sizeof(gstep_t) * GEN_STEPS);
-    for (st = 0; st < 16u; st++) {
+    for (st = 0; st < len; st++) {
         const uint32_t h = gen_hash(seed * 131u + st);
         int32_t cn, an;
         if (!(pairs >> st & 1u))
@@ -1106,7 +1133,7 @@ static void gen_render(gstep_t *s, int vary)
             an = gen_note(GEN_ANS_BASE, ADEG[a]);
         }
         s[st] = (gstep_t){G_CALL, (uint8_t)cn, (uint8_t)(100 + (h >> 16) % 16u), 2};
-        s[(st + 1u) & 15u] = (gstep_t){G_ANS, (uint8_t)an, (uint8_t)(106 + (h >> 20) % 16u), 4};
+        s[(st + 1u) % len] = (gstep_t){G_ANS, (uint8_t)an, (uint8_t)(106 + (h >> 20) % 16u), 4};
     }
 }
 
@@ -1118,7 +1145,7 @@ static void gen_handover(int vary)               /* the next round's steps (the 
     fm1_irq_off();
     for (i = 0; i < GEN_STEPS; i++)
         gen_pend[i] = s[i];
-    gen_len_isr = 16;
+    gen_len_isr = (uint8_t)gen_len();
     gen_pend_ok = 1;
     if (!gen_on || !vary)                        /* (at rest, or your own change: at once) */
         for (i = 0; i < GEN_STEPS; i++)
@@ -1191,6 +1218,7 @@ static void gen_ptrs(void)                       /* the presets the call and the
         *m = slot == bank.current ? patch : bank.preset[slot];
         if (m->mode == MODE_DRONE)                           /* (0.5: the generator's notes always struck, never held) */
             m->mode = MODE_TRIG;
+        m->spread = 0;                                       /* (1.0: in the middle, always) */
         m->timbre = gen_shift(m->timbre, tone * 6);          /* TONE: brighter, the gate's filter more open */
         m->colour = gen_shift(m->colour, -tone * 6);
         m->decay = gen_shift(m->decay, len * 9);             /* LENGTH: snappy .. long */
@@ -1407,7 +1435,7 @@ static void gen_advance(uint32_t frames)
 static void gen_pair_toggle(uint32_t st)          /* a white key: a pair set on its step, or the pair it is in taken out */
 {
     uint16_t m;
-    const uint32_t before = (st + 15u) & 15u, after = (st + 1u) & 15u;
+    const uint32_t len = gen_len(), before = (st + len - 1u) % len, after = (st + 1u) % len;
     gen_snapshot();                              /* (BACK undoes it) */
     m = gen_pairs();
     if (m >> st & 1u)
@@ -1431,7 +1459,12 @@ static void gen_keys(const fw_input_t *in)
         for (i = 0; i < 16u && STEP_KEY[i] != k; i++)
             ;
         if (i < 16u) {
-            gen_pair_toggle(i);
+            if (i < gen_len())                   /* (8 steps: the first eight keys) */
+                gen_pair_toggle(i);
+        } else if (k == GK_HALF) {
+            bank.gen.density = bank.gen.density == 8 ? 16 : 8;
+            gen_want = 1;
+            message(bank.gen.density == 8 ? "8 STEPS" : "16 STEPS", in->ms);
         } else if (k == GK_SNDS) {
             gen_snapshot();
             gen_roll_sound(0);
@@ -1557,6 +1590,7 @@ static void draw_gen_header(void)                /* (0.8) the key, the scale, th
         str_cpy(b + str_len(b), "EXT", sizeof b - str_len(b));
     else
         fmt_int(b + str_len(b), bank.gen.tempo);
+    str_cpy(b + str_len(b), gen_len() == 8u ? " 8" : " 16", sizeof b - str_len(b));
     draw_title(gen_mute ? "MUTE" : gen_on ? "PLAY" : "STOP", b);
 }
 
@@ -1577,6 +1611,10 @@ static void draw_gen_row(uint32_t row)
             const int32_t x = 4 + (int32_t)i * 14;
             const gstep_t st = gen_live[i];
             const int now = gen_on && i == gen_step_now;
+            if (i >= gen_len()) {                /* (8 steps: the rest resting) */
+                cv_rect(x + 5, 22, 2, 2, RGB(30, 30, 36));
+                continue;
+            }
             cv_rect(x, 52, 12, (i & 3u) ? 2 : 5, (i & 3u) ? C_DIM : C_GRAY);
             if (now)
                 cv_rect(x, 0, 12, 48, RGB(50, 50, 62));
@@ -1620,9 +1658,11 @@ static uint32_t gen_leds(void)                   /* the steps with a call or an 
                                                   * the scale's key */
 {
     uint32_t m = FW_BIT(SCALE_KEY[bank.gen.scale % SCALES]), i;
-    for (i = 0; i < 16u; i++)
+    for (i = 0; i < gen_len(); i++)
         if (gen_live[i].type != G_NONE && !(gen_on && i == gen_step_now))
             m |= FW_BIT(STEP_KEY[i]);
+    if (gen_len() == 8u)
+        m |= FW_BIT(GK_HALF);
     if (gen_has_prev)
         m |= FW_BIT(GK_BACK);
     return m;
