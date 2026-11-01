@@ -12,8 +12,10 @@
 #define DRAWS_PER_FRAME 2u
 #define CPU_GUARD_Q8 218u
 
-enum { PAGE_MAIN, PAGE_ATTN, PAGE_LPG, PAGE_ENV, PAGE_LFO, PAGE_MATRIX, PAGE_GLOBAL, PAGE_SAVE, PAGE_GEN, PAGE_GSND, PAGES };
-#define GENP(p) ((p) == PAGE_GEN || (p) == PAGE_GSND)   /* (0.5) the generator's two pages: play (SEQ), sound (ARP) */
+enum { PAGE_MAIN, PAGE_ATTN, PAGE_LPG, PAGE_ENV, PAGE_LFO, PAGE_MATRIX, PAGE_GLOBAL, PAGE_SAVE, PAGE_GEN, PAGE_GSND,
+       PAGE_GLEN, PAGE_GFX, PAGE_GMOV, PAGE_GSCL, PAGES };
+#define GENX(p) ((p) >= PAGE_GLEN && (p) <= PAGE_GSCL)   /* (1.1) the generator's own ENV, FX, LFO, SCL pages */
+#define GENP(p) ((p) == PAGE_GEN || (p) == PAGE_GSND || GENX(p))   /* (0.5) the generator's pages: play (SEQ), sound (ARP) */
 enum { FMT_100, FMT_BIP, FMT_INT, FMT_SEMI, FMT_ENUM, FMT_ONOFF, FMT_CHANNEL, FMT_TIME };
 enum { D_HEADER = 0, D_ROW0 = 1, D_ENC = 12, D_SCOPE = 13, D_STATUS = 14, D_ALL = 0x7FFFu };
 
@@ -73,11 +75,16 @@ typedef struct {
     uint8_t n, rsv;
     gcall_t c[GEN_CALLS];
 } gcell_t;
+typedef struct {                                 /* (1.1) */
+    int16_t len_c, len_a, bal, mov_c, mov_a, mov_rate, mark, rsv[3];
+} gext_t;
+typedef char gext_size_check[sizeof(gext_t) == sizeof(gcell_t) ? 1 : -1];
 typedef struct {
     int16_t root, scale, len, density, variation, reg, tempo, call_slot, ans_slot;
     int16_t tone, length, delay, reverb;         /* (0.4) -50..50 dark..bright, -50..50 snappy..long, 0..100, 0..100 */
     int16_t reserved[3];
-    gcell_t cell[2];                             /* (the second: four beats long) */
+    gcell_t cell[1];
+    gext_t x;                                    /* (1.1, where the second cell was: the same size) */
 } gen_t;
 typedef struct {
     uint8_t type, note, vel, gate;               /* (gate: in clock pulses) */
@@ -148,7 +155,28 @@ static uint32_t overloads_seen;
 static const char *flash_msg;
 static uint32_t flash_msg_until;
 
+static const char *const MOVE_RATE[4] = {"1 BAR", "2 BARS", "4 BARS", "8 BARS"};
 static const page_t PAGE_DEF[PAGES] = {
+    [PAGE_GLEN] = {"LENGTH", {                 /* (1.1) left short and snappy, right long */
+        {"BOTH", &bank.gen.length, -100, 100, 1, FMT_BIP, 0},
+        {"CALL", &bank.gen.x.len_c, -50, 50, 1, FMT_BIP, 0},
+        {"ANSWER", &bank.gen.x.len_a, -50, 50, 1, FMT_BIP, 0},
+        {"BALANCE C/A", &bank.gen.x.bal, -50, 50, 1, FMT_BIP, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}},
+    [PAGE_GFX] = {"EFFECTS", {
+        {"DELAY", &bank.gen.delay, 0, 100, 2, FMT_INT, 0},
+        {"ROOM", &bank.gen.reverb, 0, 100, 2, FMT_INT, 0},
+        {0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}},
+    [PAGE_GMOV] = {"MOVEMENT", {
+        {"CALL MOVE", &bank.gen.x.mov_c, 0, 100, 2, FMT_INT, 0},
+        {"ANSWER MOVE", &bank.gen.x.mov_a, 0, 100, 2, FMT_INT, 0},
+        {"CYCLE", &bank.gen.x.mov_rate, 0, 3, 1, FMT_ENUM, MOVE_RATE},
+        {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}},
+    [PAGE_GSCL] = {"SCALE", {
+        {"MODE", &bank.gen.scale, 0, SCALES - 1, 1, FMT_ENUM, SCALE_NAME},
+        {"KEY", &bank.gen.root, 0, 11, 1, FMT_ENUM, NOTE_NAME},
+        {0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}},
     [PAGE_ATTN] = {"ATTENUVERTERS", {
         {"FM", &patch.fm_amt, -100, 100, 2, FMT_BIP, 0},
         {"TIMBRE", &patch.timbre_amt, -100, 100, 2, FMT_BIP, 0},
@@ -625,12 +653,10 @@ static void draw_enc_line(void)
         str_cpy(b + str_len(b), " N", sizeof b - str_len(b));
         fmt_signed(b + str_len(b), bank.gen.reserved[2]);
     }
-    if (page == PAGE_GSND) {                     /* (0.9) the delay and the room, on SELECT and ALGO; the tempo */
-        str_cpy(b, "DELAY ", sizeof b);
-        fmt_int(b + str_len(b), bank.gen.delay);
-        str_cpy(b + str_len(b), "  ROOM ", sizeof b - str_len(b));
-        fmt_int(b + str_len(b), bank.gen.reverb);
-    }
+    if (page == PAGE_GSND)                       /* (1.1: the delay and the room on FX now) */
+        str_cpy(b, "K1-4 SOUND  PRESET TEMPO", sizeof b);
+    if (GENX(page))
+        str_cpy(b, "SEQ PLAY  ARP SOUND", sizeof b);
     for (i = 0; page != PAGE_MAIN && page != PAGE_MATRIX && page != PAGE_SAVE && !GENP(page) && i < 2u; i++) {
         if (!pg->enc[i].label)
             continue;
@@ -753,8 +779,8 @@ static void draw_strip(uint32_t bit)
         draw_title("SOUND", bank.gen.tempo && !gen_ext ? gen_tempo_str() : "EXT");
     if (bit >= D_ROW0 && bit < D_ROW0 + 4u && page == PAGE_GSND)
         draw_gsnd_row(bit - D_ROW0);
-    if (bit == D_HEADER && page != PAGE_MAIN && page != PAGE_MATRIX && page != PAGE_SAVE && !GENP(page))
-        draw_title(PAGE_DEF[page].title, 0);
+    if (bit == D_HEADER && page != PAGE_MAIN && page != PAGE_MATRIX && page != PAGE_SAVE && (!GENP(page) || GENX(page)))
+        draw_title(PAGE_DEF[page].title, GENX(page) ? "CALL/ANSWER" : 0);
     if (bit >= D_ROW0 && bit < D_ROW0 + 8u && page == PAGE_MATRIX)
         draw_matrix_row(bit - D_ROW0);
     if (bit >= D_ROW0 && bit < D_ROW0 + 4u && page == PAGE_MAIN)
@@ -762,7 +788,7 @@ static void draw_strip(uint32_t bit)
     if (bit >= D_ROW0 && bit < D_ROW0 + 3u && page == PAGE_SAVE)
         draw_save_row(bit - D_ROW0);
     if (bit >= D_ROW0 && bit < D_ROW0 + 4u && page != PAGE_MAIN && page != PAGE_MATRIX && page != PAGE_SAVE &&
-        !GENP(page))
+        (!GENP(page) || GENX(page)))
         draw_generic_row(bit - D_ROW0);
     if (bit == D_ENC && page != PAGE_MATRIX)
         draw_enc_line();
@@ -975,6 +1001,12 @@ static void gen_voice_set(uint32_t t, const macro_patch_t *p)   /* P15 (the call
     dirty |= FW_BIT(D_HEADER) | 0x1Eu | FW_BIT(D_ENC);
 }
 
+static int gen_model_hidden(int32_t e)           /* (1.1) not for call/answer: WAVE TERRAIN, STRING MACH, CHIPTUNE,
+                                                  * FORMANT, CHORDS, SPEECH */
+{
+    return e == 5 || e == 6 || e == 7 || e == 11 || e == 14 || e == 15;
+}
+
 static void gen_voice_engine(uint32_t t, int32_t d)   /* (0.8) by hand: any of the 24 models, never the other voice's */
 {
     macro_patch_t p = bank.preset[14u + t];
@@ -982,7 +1014,7 @@ static void gen_voice_engine(uint32_t t, int32_t d)   /* (0.8) by hand: any of t
     for (k = 0; k < (d > 0 ? d : -d); k++)
         do
             e = ((e + (d > 0 ? 1 : -1)) % MACRO_ENGINES + MACRO_ENGINES) % MACRO_ENGINES;
-        while (e == bank.preset[15u - t].engine);
+        while (e == bank.preset[15u - t].engine || gen_model_hidden(e));
     p.engine = (int16_t)e;
     mi = gen_model_of(t, e);
     p.harmonics = (int16_t)(mi >= 0 ? (gen_pool(t)[mi].h0 + gen_pool(t)[mi].h1) / 2 : 500);
@@ -1178,7 +1210,13 @@ static void gen_sanitize(gen_t *g)
     clamp16(&g->variation, 0, 100);
     clamp16(&g->reg, -2, 2);
     clamp16(&g->tone, -50, 50);
-    clamp16(&g->length, -50, 50);
+    clamp16(&g->length, -100, 100);           /* (1.1: finer) */
+    clamp16(&g->x.len_c, -50, 50);
+    clamp16(&g->x.len_a, -50, 50);
+    clamp16(&g->x.bal, -50, 50);
+    clamp16(&g->x.mov_c, 0, 100);
+    clamp16(&g->x.mov_a, 0, 100);
+    clamp16(&g->x.mov_rate, 0, 3);
     clamp16(&g->delay, 0, 100);                  /* (0.9: back, without the noise) */
     clamp16(&g->reverb, 0, 100);
     clamp16(&g->reserved[2], -30, 30);           /* (the nudge, in ms) */
@@ -1187,7 +1225,7 @@ static void gen_sanitize(gen_t *g)
     clamp16(&g->tempo, 60, 190);
     clamp16(&g->call_slot, 0, PRESETS - 1);
     clamp16(&g->ans_slot, 0, PRESETS - 1);
-    for (k = 0; k < 2u; k++) {
+    for (k = 0; k < 1u; k++) {
         if (g->cell[k].n > GEN_CALLS)
             g->cell[k].n = 0;
         for (i = 0; i < GEN_CALLS; i++) {
@@ -1206,6 +1244,17 @@ static macro_patch_t gen_mp[2][2];               /* the two voices as they play:
                                                   * them (two of each: the interrupt plays one while the other is made) */
 static uint32_t gen_mp_sel;
 static int16_t gen_shift(int32_t v, int32_t d) { return (int16_t)clampi(v + d, 0, 1000); }
+static int gen_morph_decays(int32_t e)           /* (1.1) the models that ring out by MORPH: 6-OP FM, STRING, MODAL, BD */
+{
+    return (e >= 2 && e <= 4) || (e >= 19 && e <= 21);
+}
+static int32_t gen_move_tri(void)                /* (1.1) -1000..1000, a triangle over 1, 2, 4 or 8 rounds, on the steps */
+{
+    const uint32_t rounds = 1u << (bank.gen.x.mov_rate & 3), n = rounds * gen_len();
+    const uint32_t pos = (gen_cycles % rounds) * gen_len() + gen_step_now % gen_len();
+    const int32_t ph = (int32_t)(pos * 4000u / n);      /* 0..4000 */
+    return ph < 2000 ? ph - 1000 : 3000 - ph;
+}
 static void gen_ptrs(void)                       /* the presets the call and the answer play (the one being edited: live) */
 {
     uint32_t t;
@@ -1214,16 +1263,28 @@ static void gen_ptrs(void)                       /* the presets the call and the
     for (t = 0; t < 2u; t++) {
         const uint32_t slot = 14u + t;                       /* (0.5: P15 the call, P16 the answer) */
         macro_patch_t *m = &gen_mp[t][gen_mp_sel];
-        const int32_t tone = bank.gen.tone, len = bank.gen.length;
+        const int32_t tone = bank.gen.tone;
+        const int32_t len = clampi(bank.gen.length + (t ? bank.gen.x.len_a : bank.gen.x.len_c), -100, 100);
+        const int32_t bal = bank.gen.x.bal, mov = t ? bank.gen.x.mov_a : bank.gen.x.mov_c;
+        uint32_t r;
         *m = slot == bank.current ? patch : bank.preset[slot];
         if (m->mode == MODE_DRONE)                           /* (0.5: the generator's notes always struck, never held) */
             m->mode = MODE_TRIG;
         m->spread = 0;                                       /* (1.0: in the middle, always) */
         m->timbre = gen_shift(m->timbre, tone * 6);          /* TONE: brighter, the gate's filter more open */
         m->colour = gen_shift(m->colour, -tone * 6);
-        m->decay = gen_shift(m->decay, len * 9);             /* LENGTH: snappy .. long */
-        m->env_d = gen_shift(m->env_d, len * 9);
-        m->env_r = gen_shift(m->env_r, len * 9);
+        m->decay = gen_shift(m->decay, len * 5);             /* LENGTH: snappy .. long (1.1: finer, -100..100) */
+        m->env_d = gen_shift(m->env_d, len * 5);
+        m->env_r = gen_shift(m->env_r, len * 5);
+        for (r = 0; r < MACRO_ROUTES; r++) {                 /* (1.1) no hidden modulation from the presets' matrix */
+            m->route[r].src = 0;
+            m->route[r].dst = 0;
+            m->route[r].amount = 0;
+        }
+        if (mov)                                             /* (1.1) MOVEMENT: the timbre wanders, on the clock */
+            m->timbre = gen_shift(m->timbre, gen_move_tri() * mov * 3 / 1000);
+        if (t ? bal < 0 : bal > 0)                           /* (1.1) BALANCE: the other voice down, up to 10 dB */
+            m->reserved[0] = (int16_t)(m->reserved[0] - (bal < 0 ? -bal : bal) * 2);
         {                                                    /* (0.5) inside the model's safe ranges, a little past */
             const int32_t mi = gen_model_of(t, m->engine);
             if (mi >= 0) {
@@ -1232,6 +1293,8 @@ static void gen_ptrs(void)                       /* the presets the call and the
                 m->timbre = (int16_t)clampi(m->timbre, g->t0 - 120, g->t1 + 120);
                 m->morph = (int16_t)clampi(m->morph, g->m0 - 100, g->m1 + 100);
             }
+            if (gen_morph_decays(m->engine))                 /* (1.1) their own decay on MORPH: LENGTH there too */
+                m->morph = gen_shift(m->morph, len * 4);
         }
         gen_patch_p[G_CALL + t] = m;
     }
@@ -1281,7 +1344,7 @@ static void gen_frame(uint32_t now)              /* each frame */
     }
     if (!gen_ext)
         gen_spp_q8 = (uint32_t)FW_FS * 640u / (uint32_t)bank.gen.tempo;
-    gen_gate_add = (int8_t)(bank.gen.length / 6);
+    gen_gate_add = (int8_t)(bank.gen.length / 12);
     gen_nudge = (int8_t)bank.gen.reserved[2];
     gen_ptrs();
     if (gen_cycles != gen_cycle_seen) {          /* a round begun: the next one's steps, a little changed */
@@ -1527,7 +1590,7 @@ static void gen_knobs(const fw_input_t *in)      /* every knob its one thing, on
     }
     if (page == PAGE_GEN) {                      /* play: tone, length, octave, variation; PRESET the nudge */
         changed |= adjust(&g->tone, knob_fast[FW_KNOB_1], 2, -50, 50);
-        changed |= adjust(&g->length, knob_fast[FW_KNOB_2], 2, -50, 50);
+        changed |= adjust(&g->length, knob_fast[FW_KNOB_2], 1, -100, 100);   /* (1.1) finer, further */
         if (adjust(&g->reg, in->knob[FW_KNOB_3], 1, -2, 2)) {
             changed = 1;
             gen_want = 1;
@@ -1547,8 +1610,6 @@ static void gen_knobs(const fw_input_t *in)      /* every knob its one thing, on
             }
         }
         changed |= adjust(&g->tempo, in->knob[FW_KNOB_PRESET], 1, 60, 190);
-        changed |= adjust(&g->delay, in->knob[FW_KNOB_SELECT], 5, 0, 100);   /* (0.9) SELECT the delay, ALGO the room */
-        changed |= adjust(&g->reverb, in->knob[FW_KNOB_ALGO], 5, 0, 100);
     }
     if (changed)
         dirty |= FW_BIT(D_HEADER) | 0x1Eu | FW_BIT(D_ENC);
@@ -1677,9 +1738,16 @@ static void handle_buttons(const fw_input_t *in)
     };
     const uint32_t was = page;
     uint32_t i;
+    static const uint8_t GMAP[][2] = {          /* (1.1) from the generator's pages: its own */
+        {FW_BTN_SCL, PAGE_GSCL}, {FW_BTN_FX, PAGE_GFX}, {FW_BTN_ENV, PAGE_GLEN}, {FW_BTN_LFO, PAGE_GMOV}
+    };
     for (i = 0; i < FW_NELEM(MAP); i++) {
         if (in->pressed & FW_BIT(MAP[i][0]))
             set_page(MAP[i][1]);
+    }
+    for (i = 0; GENP(was) && i < FW_NELEM(GMAP); i++) {
+        if (in->pressed & FW_BIT(GMAP[i][0]))
+            set_page(GMAP[i][1]);
     }
     if ((in->pressed & FW_BIT(FW_BTN_SAVE)) && GENP(was)) {   /* (the generator's pages: saved at once, all) */
         gen_save(in->ms);
@@ -1828,6 +1896,16 @@ static void handle_knobs_generic(const fw_input_t *in)
         dirty |= FW_BIT(D_ENC);
 }
 
+static void gen_knobs_x(const fw_input_t *in)   /* (1.1) generic pages; on the generator's, its notes follow */
+{
+    const int16_t sc = bank.gen.scale, root = bank.gen.root;
+    handle_knobs_generic(in);
+    if (GENX(page) && (sc != bank.gen.scale || root != bank.gen.root)) {
+        gen_want = 1;
+        dirty |= FW_BIT(D_HEADER);
+    }
+}
+
 static void handle_knobs(const fw_input_t *in)
 {
     const int32_t p = in->knob[FW_KNOB_PRESET];
@@ -1843,16 +1921,17 @@ static void handle_knobs(const fw_input_t *in)
         handle_knobs_matrix(in);
     if (page == PAGE_SAVE)
         handle_knobs_save(in);
-    if (GENP(page))
+    if (GENP(page) && !GENX(page))
         gen_knobs(in);
-    if (page != PAGE_MAIN && page != PAGE_MATRIX && page != PAGE_SAVE && !GENP(page))
-        handle_knobs_generic(in);
+    if (page != PAGE_MAIN && page != PAGE_MATRIX && page != PAGE_SAVE && (!GENP(page) || GENX(page)))
+        gen_knobs_x(in);
 }
 
 static void update_leds(const fw_input_t *in)
 {
     static const uint8_t PAGE_LED[PAGES] = {FW_BTN_HOME, FW_BTN_SCL, FW_BTN_FX, FW_BTN_ENV, FW_BTN_LFO, FW_BTN_EDIT,
-                                            FW_BTN_GLO, FW_BTN_SAVE, FW_BTN_SEQ, FW_BTN_ARP};
+                                            FW_BTN_GLO, FW_BTN_SAVE, FW_BTN_SEQ, FW_BTN_ARP,
+                                            FW_BTN_ENV, FW_BTN_FX, FW_BTN_LFO, FW_BTN_SCL};
     uint32_t i;
     for (i = 0; i < PAGES; i++)
         fw_led_button(PAGE_LED[i], i == page);
@@ -1876,6 +1955,11 @@ static void app_init(void)
     preset_select(bank.current);
     macro_init();
     macro_b_init();
+    if (bank.gen.x.mark != 11) {                 /* (1.1, once: its settings; the old length doubled, the same sound) */
+        memset(&bank.gen.x, 0, sizeof bank.gen.x);
+        bank.gen.x.mark = 11;
+        bank.gen.length = (int16_t)clampi(bank.gen.length * 2, -100, 100);
+    }
     if (bank.gen.len != 9) {                     /* (0.9, once: MINIMAL, the delay and the room back) */
         bank.gen.len = 9;
         bank.gen.scale = 0;
