@@ -76,7 +76,7 @@ typedef struct {
     gcall_t c[GEN_CALLS];
 } gcell_t;
 typedef struct {                                 /* (1.1) */
-    int16_t len_c, len_a, bal, mov_c, mov_a, mov_rate, mark, rsv[3];
+    int16_t len_c, len_a, bal, mov_c, mov_a, mov_rate, mark, attack, rsv[2];   /* (1.2: attack) */
 } gext_t;
 typedef char gext_size_check[sizeof(gext_t) == sizeof(gcell_t) ? 1 : -1];
 typedef struct {
@@ -165,7 +165,7 @@ static const page_t PAGE_DEF[PAGES] = {
     [PAGE_GFX] = {"EFFECTS", {
         {"DELAY", &bank.gen.delay, 0, 100, 2, FMT_INT, 0},
         {"ROOM", &bank.gen.reverb, 0, 100, 2, FMT_INT, 0},
-        {0, 0, 0, 0, 0, 0, 0},
+        {"ATTACK SOFT", &bank.gen.x.attack, 0, 100, 2, FMT_INT, 0},
         {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}},
     [PAGE_GMOV] = {"MOVEMENT", {
         {"CALL MOVE", &bank.gen.x.mov_c, 0, 100, 2, FMT_INT, 0},
@@ -968,7 +968,7 @@ static const gmodel_t CALL_POOL[] = {
     {4, 0, 650, 150, 400, 150, 600, -20},     /* 6-OP FM III */
 };
 static const gmodel_t ANS_POOL[] = {
-    {21, 200, 700, 200, 550, 150, 500, 0},   /* BASS DRUM, tuned: a deep tom */
+    {21, 200, 700, 200, 400, 150, 500, 0},   /* BASS DRUM, tuned: a deep tom (1.2: TONE to 400, its click) */
     {20, 150, 650, 100, 400, 200, 550, -6},   /* MODAL, darker */
     {8, 300, 750, 0, 350, 0, 450, 35},        /* VIRTUAL ANLG, a pluck */
     {0, 0, 400, 250, 500, 200, 700, 12},      /* VA VCF, a low pluck */
@@ -1217,6 +1217,7 @@ static void gen_sanitize(gen_t *g)
     clamp16(&g->x.mov_c, 0, 100);
     clamp16(&g->x.mov_a, 0, 100);
     clamp16(&g->x.mov_rate, 0, 3);
+    clamp16(&g->x.attack, 0, 100);
     clamp16(&g->delay, 0, 100);                  /* (0.9: back, without the noise) */
     clamp16(&g->reverb, 0, 100);
     clamp16(&g->reserved[2], -30, 30);           /* (the nudge, in ms) */
@@ -1283,6 +1284,9 @@ static void gen_ptrs(void)                       /* the presets the call and the
         }
         if (mov)                                             /* (1.1) MOVEMENT: the timbre wanders, on the clock */
             m->timbre = gen_shift(m->timbre, gen_move_tri() * mov * 3 / 1000);
+        m->reserved[1] = (int16_t)(m->engine >= 19 && m->engine <= 21 ? 60 : 0);   /* (1.2) STRING, MODAL, BD: struck softer,
+                                                              * clear of Plaits' clipping */
+        m->reserved[2] = bank.gen.x.attack;                  /* (1.2) ATTACK: the onset's click softened */
         if (t ? bal < 0 : bal > 0)                           /* (1.1) BALANCE: the other voice down, up to 10 dB */
             m->reserved[0] = (int16_t)(m->reserved[0] - (bal < 0 ? -bal : bal) * 2);
         {                                                    /* (0.5) inside the model's safe ranges, a little past */
@@ -1955,10 +1959,14 @@ static void app_init(void)
     preset_select(bank.current);
     macro_init();
     macro_b_init();
-    if (bank.gen.x.mark != 11) {                 /* (1.1, once: its settings; the old length doubled, the same sound) */
+    if (bank.gen.x.mark != 11 && bank.gen.x.mark != 12) {                 /* (1.1, once: its settings; the old length doubled, the same sound) */
         memset(&bank.gen.x, 0, sizeof bank.gen.x);
         bank.gen.x.mark = 11;
         bank.gen.length = (int16_t)clampi(bank.gen.length * 2, -100, 100);
+    }
+    if (bank.gen.x.mark == 11) {                 /* (1.2, once: a little softer onset to begin with) */
+        bank.gen.x.mark = 12;
+        bank.gen.x.attack = 30;
     }
     if (bank.gen.len != 9) {                     /* (0.9, once: MINIMAL, the delay and the room back) */
         bank.gen.len = 9;

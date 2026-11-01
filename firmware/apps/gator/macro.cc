@@ -55,6 +55,9 @@ float note_target = 60.0f, note_current = 60.0f;
 float velocity = 0.8f, random_value;
 bool gate;
 int retrigger_blocks;
+float prev_trigger;                              // (1.2) the onset: the trigger's rising edge, for the soft start
+uint32_t onset_pos = 1u << 30;
+float soft_l, soft_r;
 
 struct Lfo {
     float phase, held, previous;
@@ -302,6 +305,16 @@ void render_block(const macro_patch_t& p, const macro_global_t& g) {
     mod.morph_patched = (patched >> DST_MORPH) & 1u;
     mod.trigger_patched = p.mode != MODE_DRONE;
     mod.level_patched = (patched >> DST_LEVEL) & 1u;
+    if (p.reserved[1] > 0 && !mod.level_patched && p.engine >= 19 && p.engine <= 21) {
+        // (1.2) a softer strike for STRING, MODAL, BASS DRUM: Plaits' accent (0.8 by default) lower, so they stay
+        // clear of its clipping; only these, which make their own envelope (the gate untouched)
+        const float a = clampf(static_cast<float>(p.reserved[1]) * 0.01f, 0.1f, 0.8f);
+        mod.level = 0.3f * a / (1.3f - a);
+        mod.level_patched = true;
+    }
+    if (mod.trigger > 0.5f && prev_trigger < 0.5f)
+        onset_pos = 0;
+    prev_trigger = mod.trigger;
     if (retrigger_blocks > 0)
         retrigger_blocks--;
 
@@ -345,6 +358,7 @@ extern "C" void MACRO_FN(render)(const macro_patch_t* p, const macro_global_t* g
     const float blend = clampf(static_cast<float>(p->blend) * 0.01f, 0.0f, 1.0f);
     const float spread = clampf(static_cast<float>(p->spread) * 0.01f, 0.0f, 1.0f);
     const float trim = p->reserved[0] ? powf(10.0f, clampf(static_cast<float>(p->reserved[0]), -120.0f, 120.0f) * 0.005f) : 1.0f;
+    const uint32_t soft_len = static_cast<uint32_t>(p->reserved[2] > 0 ? (p->reserved[2] > 100 ? 100 : p->reserved[2]) : 0) * 6u;
     const float volume = clampf(static_cast<float>(g->volume) / 256.0f, 0.0f, 1.0f) * trim;   /* (0.5: reserved[0], a level
                                                                                                 * trim in 0.1 dB) */
     for (uint32_t i = 0; i < frames; i++) {
@@ -355,8 +369,22 @@ extern "C" void MACRO_FN(render)(const macro_patch_t* p, const macro_global_t* g
         const float out = static_cast<float>(block[block_pos].out);
         const float aux = static_cast<float>(block[block_pos].aux);
         const float mono = out + (aux - out) * blend;
-        lr[2 * i] = static_cast<int32_t>((mono + (out - mono) * spread) * volume);
-        lr[2 * i + 1] = static_cast<int32_t>((mono + (aux - mono) * spread) * volume);
+        float l = mono + (out - mono) * spread, r = mono + (aux - mono) * spread;
+        if (onset_pos < soft_len) {              // (1.2) ATTACK: a low-pass opening over the first ms, the click softened
+            const float q = static_cast<float>(onset_pos) / static_cast<float>(soft_len);
+            const float a = 0.03f + 0.97f * q * q;   // (opens slowly first: ~250 Hz, then all)
+            soft_l += a * (l - soft_l);
+            soft_r += a * (r - soft_r);
+            l = soft_l;
+            r = soft_r;
+        } else {
+            soft_l = l;
+            soft_r = r;
+        }
+        if (onset_pos < (1u << 30))
+            onset_pos++;
+        lr[2 * i] = static_cast<int32_t>(l * volume);
+        lr[2 * i + 1] = static_cast<int32_t>(r * volume);
         block_pos++;
     }
 }
@@ -421,7 +449,8 @@ extern "C" void MACRO_FN(fx)(int32_t* lr, uint32_t frames, int32_t echo_len, int
     const float v_send = clampf(static_cast<float>(verb_amt) * 0.01f, 0.0f, 1.0f);
     const int len = echo_len < 64 ? 64 : echo_len > kEchoMax - 1 ? kEchoMax - 1 : static_cast<int>(echo_len);
     const float kHp = 1.0f - 6.2832f * 35.0f / 48077.0f, kLp = 1.0f - expf(-6.2832f * 12000.0f / 48077.0f);   /* (0.7: only past the useful) */
-    static float hp_x[2], hp_y[2], lp_y[2];
+    static float hp_x[2], hp_y[2], lp_y[2], lim_g = 1.0f;
+    float vv[2];
     for (uint32_t i = 0; i < frames; i++) {
         const float l = static_cast<float>(lr[2 * i]), r = static_cast<float>(lr[2 * i + 1]);
         const float in = (l + r) * 0.5f;
@@ -467,13 +496,23 @@ extern "C" void MACRO_FN(fx)(int32_t* lr, uint32_t frames, int32_t echo_len, int
             hp_x[c] = y;
             hp_y[c] = hy;
             lp_y[c] += (hy - lp_y[c]) * kLp;                /* low-pass */
-            float v = lp_y[c] * (1.0f / 30000.0f);           /* soft limiter: unity below ~-6 dB, never past full */
-            const float a = v < 0.0f ? -v : v;
-            if (a > 0.5f) {
-                const float over = a - 0.5f;
-                v = (v < 0.0f ? -1.0f : 1.0f) * (0.5f + over / (1.0f + over * 2.0f));
+            vv[c] = lp_y[c] * (1.0f / 30000.0f);
+        }
+        {   /* (1.2) a limiter that turns down instead of bending the wave: the strikes' first ms no longer crackle in
+             * a clipper; above -2.5 dB it reacts within ~0.1 ms, lets go over ~80 ms; the soft clip only past that */
+            const float al = vv[0] < 0.0f ? -vv[0] : vv[0], ar = vv[1] < 0.0f ? -vv[1] : vv[1];
+            const float pk = al > ar ? al : ar;
+            const float target = pk > 0.75f ? 0.75f / pk : 1.0f;
+            lim_g += (target - lim_g) * (target < lim_g ? 0.5f : 0.00026f);
+            for (int c = 0; c < 2; c++) {
+                float v = vv[c] * lim_g;
+                const float a = v < 0.0f ? -v : v;
+                if (a > 0.85f) {
+                    const float over = a - 0.85f;
+                    v = (v < 0.0f ? -1.0f : 1.0f) * (0.85f + over / (1.0f + over * 6.0f));
+                }
+                lr[2 * i + c] = static_cast<int32_t>(v * 30000.0f);
             }
-            lr[2 * i + c] = static_cast<int32_t>(v * 30000.0f);
         }
     }
 }
